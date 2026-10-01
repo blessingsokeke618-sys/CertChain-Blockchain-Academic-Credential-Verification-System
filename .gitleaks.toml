@@ -1,0 +1,41 @@
+title = "Acredia Gitleaks Configuration"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow documentation-only placeholder values and public Stellar identifiers while still blocking real secrets."
+regexes = [
+  '''your_[A-Za-z0-9_]+''',
+  '''placeholder[-A-Za-z0-9_]*''',
+  '''eyJhbGci\.\.\.''',
+  # Public Stellar identifiers are safe to commit (on-chain public data):
+  #   C... = Soroban contract IDs, G... = account public keys.
+  # Secret seeds (S...) are intentionally NOT allowlisted and remain blocked.
+  '''C[A-Z2-7]{55}''',
+  '''G[A-Z2-7]{55}''',
+]
+
+[[rules]]
+id = "acredia-stellar-secret-seed"
+description = "Detect Stellar secret seeds (server/deployer private keys)"
+regex = '''\bS[A-Z2-7]{55}\b'''
+keywords = ["stellar", "secret", "seed"]
+
+[[rules]]
+id = "acredia-supabase-service-role"
+description = "Detect committed Supabase service-role key values"
+regex = '''(?i)SUPABASE_SERVICE_ROLE_KEY\s*[:=]\s*["']?([A-Za-z0-9_\-\.]{24,})["']?'''
+keywords = ["SUPABASE_SERVICE_ROLE_KEY", "service_role"]
+
+[[rules]]
+id = "acredia-pinata-jwt"
+description = "Detect committed Pinata JWT values"
+regex = '''(?i)PINATA_JWT\s*[:=]\s*["']?(eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+)["']?'''
+keywords = ["PINATA_JWT", "pinata"]
+
+[[rules]]
+id = "acredia-verification-hash-secret"
+description = "Detect committed verification hash secret values"
+regex = '''(?i)VERIFICATION_LOG_HASH_SECRET\s*[:=]\s*["']?([A-Za-z0-9_\-\.]{20,})["']?'''
+keywords = ["VERIFICATION_LOG_HASH_SECRET", "hash_secret"]

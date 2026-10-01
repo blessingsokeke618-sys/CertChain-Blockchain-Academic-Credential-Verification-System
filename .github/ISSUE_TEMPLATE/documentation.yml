@@ -1,0 +1,94 @@
+name: Documentation or Setup Copy
+description: Report unclear setup docs, stale links, missing env examples, or contributor instructions.
+title: "[Docs]: "
+labels: ["docs", "needs-triage"]
+body:
+  - type: dropdown
+    id: docs-label
+    attributes:
+      label: Required issue label
+      description: Choose the closest documentation label.
+      options:
+        - docs
+        - setup
+        - env-example
+        - stale-link
+        - contributor-experience
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Required area label
+      description: Choose the project area affected by the documentation issue.
+      options:
+        - README
+        - frontend
+        - contracts
+        - database
+        - GitHub templates
+        - CI
+    validations:
+      required: true
+  - type: textarea
+    id: affected-paths
+    attributes:
+      label: Affected file paths
+      description: List exact files or folders. Use repository-relative paths.
+      placeholder: |
+        README.md
+        CONTRIBUTING.md
+        frontend/.env.local.example
+        contracts/.env.example
+        .github/ISSUE_TEMPLATE/bug_report.yml
+    validations:
+      required: true
+  - type: textarea
+    id: setup-attempted
+    attributes:
+      label: Setup steps attempted
+      description: Paste the README or CONTRIBUTING commands you followed from a clean clone.
+      placeholder: |
+        git clone ...
+        cd ACREDIA-STELLAR/frontend
+        npm ci
+        Copy-Item .env.local.example .env.local
+        npm run dev
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What was unclear, stale, or missing?
+      description: Describe the exact docs problem and where it appeared.
+      placeholder: "The README says ..., but the clean clone needs ..."
+    validations:
+      required: true
+  - type: textarea
+    id: suggested-copy
+    attributes:
+      label: Suggested replacement copy
+      description: Optional, but helpful. Include the command, link, env key, or wording that would have avoided the issue.
+    validations:
+      required: false
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, shell, Node version, npm version, and relevant tool versions.
+      placeholder: "Windows 11, PowerShell 7, Node 20, npm 10, Stellar CLI ..."
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Pre-submit checklist
+      options:
+        - label: I included required labels/area selections above.
+          required: true
+        - label: I included repository-relative file paths.
+          required: true
+        - label: I included setup steps from a clean clone.
+          required: true
+        - label: I removed or redacted all secrets, service-role keys, Pinata JWTs, and Stellar secret keys.
+          required: true
