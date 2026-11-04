@@ -153,10 +153,9 @@ export async function invokeContractMethod(
 
     // Wait for on-chain confirmation
     // eslint-disable-next-line no-console
-    console.log(`⏳ Waiting for confirmation (hash: ${sendResponse.hash})...`);
+    debugLog(`⏳ Waiting for confirmation (hash: ${sendResponse.hash})...`);
     const confirmation = await waitForConfirmation(sendResponse.hash);
-    // eslint-disable-next-line no-console
-    console.log(`✅ ${method} confirmed on-chain.`);
+    debugLog(`✅ ${method} confirmed on-chain.`);
 
     return {
         transactionHash: sendResponse.hash,
@@ -354,10 +353,8 @@ export async function issueCredentialOnStellar(
     const result = await invokeContractMethod(contractId, 'issue_credential', args, issuer);
     const tokenId = normalizeTokenId(result.returnValue);
 
-    // eslint-disable-next-line no-console
-    console.log('✅ Credential issued on Stellar Network. Token ID:', tokenId);
-    // eslint-disable-next-line no-console
-    console.log('✅ Transaction:', result.transactionHash);
+    debugLog('✅ Credential issued on Stellar Network. Token ID:', tokenId);
+    debugLog('✅ Transaction:', result.transactionHash);
     return {
         tokenId,
         transactionHash: result.transactionHash,
@@ -506,12 +503,10 @@ export async function batchIssueCredentialOnStellar(
     const rawRows = Array.isArray(result.returnValue) ? result.returnValue : [];
     const results = rawRows.map((row, index) => normalizeBatchIssueRow(row, index));
 
-    // eslint-disable-next-line no-console
-    console.log(
+    debugLog(
         `✅ Credential batch issued on Stellar Network. ${results.filter((r) => r.success).length}/${results.length} succeeded.`,
     );
-    // eslint-disable-next-line no-console
-    console.log('✅ Transaction:', result.transactionHash);
+    debugLog('✅ Transaction:', result.transactionHash);
 
     return { transactionHash: result.transactionHash, results };
 }
@@ -527,8 +522,7 @@ export async function revokeCredentialOnStellar(
         return e2eLedgerWrites.revokeCredential(normalizeTokenId(tokenId));
     }
 
-    // eslint-disable-next-line no-console
-    console.log('🗑️ Revoking credential on Stellar Network...');
+    debugLog('🗑️ Revoking credential on Stellar Network...');
     const contractId = getContractAddress('CREDENTIAL_NFT');
     const validatedTokenId = normalizeTokenId(tokenId);
 
@@ -538,8 +532,7 @@ export async function revokeCredentialOnStellar(
     ];
 
     const result = await invokeContractMethod(contractId, 'revoke_credential', args, issuer);
-    // eslint-disable-next-line no-console
-    console.log('✅ Credential revoked on Stellar Network. Tx:', result.transactionHash);
+    debugLog('✅ Credential revoked on Stellar Network. Tx:', result.transactionHash);
     return result.transactionHash;
 }
 export async function generateCredentialHash(metadata: unknown): Promise<string> {

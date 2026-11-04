@@ -202,7 +202,18 @@ function looksLikePlaceholder(value: string): boolean {
         normalized.includes('your-project') ||
         normalized.startsWith('your_') ||
         normalized.startsWith('your-') ||
-        normalized.includes('example.com')
+        normalized.includes('example.com') ||
+        normalized === 'placeholder' ||
+        normalized === 'changeme' ||
+        normalized === 'todo' ||
+        normalized === 'fixme' ||
+        normalized === 'replace_me' ||
+        // Supabase placeholder patterns
+        normalized.includes('supabase.co') && normalized.includes('your') ||
+        // Common secret placeholders
+        normalized === 'secret' ||
+        normalized === 'supersecret' ||
+        normalized === 'mysecret'
     );
 }
 
@@ -390,6 +401,16 @@ function readContractId(name: ContractName, envName: string, isProduction: boole
         );
     }
 
+    // Warn in development when the contract ID is missing — a common first-run
+    // misconfiguration that results in silent 404s on every contract call.
+    if (!value && process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
+        console.warn(
+            `[runtime-config] ${envName} is not set. Contract reads and writes will fail. `
+                + 'Copy frontend/.env.local.example to frontend/.env.local and fill in the contract ID.',
+        );
+    }
+
     return value;
 }
 
@@ -554,9 +575,39 @@ function buildFallbackRuntimeConfig(): RuntimeConfig {
     };
 }
 
+/**
+ * Produces a developer-friendly startup summary so first-time contributors
+ * know exactly what is configured and what is missing without reading source.
+ *
+ * Only runs in development (`NODE_ENV !== 'production'`) — not logged in
+ * production builds where every console.* is visible to end users.
+ */
+function logStartupDiagnostics(config: RuntimeConfig): void {
+    if (process.env.NODE_ENV === 'production') return;
+
+    const ok = '✅';
+    const warn = '⚠️ ';
+    const missing = (label: string) => `${warn} ${label}: NOT SET — contract calls will fail`;
+
+    // eslint-disable-next-line no-console
+    console.info(
+        [
+            '[certchain] Runtime configuration:',
+            `  Network : ${ok} ${config.stellar.kind} (${config.stellar.networkName})`,
+            `  RPC     : ${ok} ${config.stellar.sorobanRpcUrl}`,
+            `  Supabase: ${config.supabase.url ? `${ok} ${config.supabase.url}` : missing('NEXT_PUBLIC_SUPABASE_URL')}`,
+            `  Contract: ${config.contracts.CREDENTIAL_NFT ? `${ok} ${config.contracts.CREDENTIAL_NFT}` : missing('NEXT_PUBLIC_CREDENTIAL_NFT_CONTRACT')}`,
+            `  IPFS GW : ${ok} ${config.ipfs.gatewayUrl}`,
+            `  WalletConnect: ${config.walletConnect.projectId ? `${ok} configured` : `${warn}  not configured — mobile wallets unavailable (ACREDIA-STELLAR#4)`}`,
+        ].join('\n'),
+    );
+}
+
 function initRuntimeConfig(): RuntimeConfig {
     try {
-        return buildRuntimeConfig();
+        const config = buildRuntimeConfig();
+        logStartupDiagnostics(config);
+        return config;
     } catch (error) {
         // Never degrade past an unsafe configuration — see UnsafeConfigError.
         // A mainnet deployment pointed at a testnet contract must fail the boot,
@@ -570,11 +621,17 @@ function initRuntimeConfig(): RuntimeConfig {
         // off in production) so this misconfiguration is always visible.
         // eslint-disable-next-line no-console
         console.error(
-            '[runtime-config] Public configuration is missing or invalid; the app is running in '
-                + 'degraded mode. Set the required NEXT_PUBLIC_* environment variables in your hosting '
-                + `platform (e.g. Vercel) for the Production environment and redeploy. Details: ${message}`,
+            '\n[certchain] ⚠️  Public configuration is missing or invalid.\n'
+                + 'The app is running in degraded mode — some features will not work.\n\n'
+                + 'Fix:\n'
+                + '  1. Copy frontend/.env.local.example to frontend/.env.local\n'
+                + '  2. Fill in the required NEXT_PUBLIC_* values\n'
+                + '  3. Restart the dev server\n\n'
+                + `Details: ${message}\n`,
         );
-        return buildFallbackRuntimeConfig();
+        const fallback = buildFallbackRuntimeConfig();
+        logStartupDiagnostics(fallback);
+        return fallback;
     }
 }
 
