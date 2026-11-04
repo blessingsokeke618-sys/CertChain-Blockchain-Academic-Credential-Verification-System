@@ -196,13 +196,31 @@ function readEnv(name: string): string | undefined {
     return value ? value : undefined;
 }
 
+function isExampleDotComHost(value: string): boolean {
+    const candidate = value.trim().toLowerCase();
+    const inputs = candidate.includes('://') ? [candidate] : [candidate, `https://${candidate}`];
+
+    for (const input of inputs) {
+        try {
+            const hostname = new URL(input).hostname.toLowerCase();
+            if (hostname === 'example.com' || hostname.endsWith('.example.com')) {
+                return true;
+            }
+        } catch {
+            // Not a URL-like value for this candidate; try next form.
+        }
+    }
+
+    return false;
+}
+
 function looksLikePlaceholder(value: string): boolean {
     const normalized = value.toLowerCase();
     return (
         normalized.includes('your-project') ||
         normalized.startsWith('your_') ||
         normalized.startsWith('your-') ||
-        normalized.includes('example.com') ||
+        isExampleDotComHost(normalized) ||
         normalized === 'placeholder' ||
         normalized === 'changeme' ||
         normalized === 'todo' ||
