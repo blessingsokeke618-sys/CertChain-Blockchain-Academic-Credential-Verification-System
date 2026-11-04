@@ -1,0 +1,108 @@
+# CertChain — SEP-0001 stellar.toml
+# https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0001.md
+#
+# This file is served at:
+#   https://<your-domain>/.well-known/stellar.toml
+#
+# It makes CertChain discoverable by Stellar ecosystem tools (wallets, explorers,
+# federation servers) and provides machine-readable metadata about the project,
+# the deployed contract, and the team.
+#
+# ⚠️  Before going to mainnet, update every placeholder value below.
+#     The `SIGNING_KEY` and `ACCOUNTS` fields especially must reflect real
+#     funded Stellar accounts — explorers use them to show verified identity.
+
+VERSION = "2.0"
+
+# ---------------------------------------------------------------------------
+# Organisation
+# ---------------------------------------------------------------------------
+
+[DOCUMENTATION]
+ORG_NAME           = "CertChain"
+ORG_DBA            = "CertChain — Blockchain Academic Credential Verification"
+ORG_URL            = "https://acredia-stellar-tau.vercel.app"
+ORG_LOGO           = "https://acredia-stellar-tau.vercel.app/Acredia.png"
+ORG_DESCRIPTION    = "Decentralized platform for issuing, storing, and verifying academic credentials on the Stellar blockchain. Eliminates credential fraud with tamper-proof, blockchain-anchored records verifiable in seconds — for free, with no account required."
+ORG_GITHUB         = "https://github.com/blessingsokeke618-sys/CertChain-Blockchain-Academic-Credential-Verification-System"
+ORG_KEYBASE        = ""
+ORG_TWITTER        = ""
+ORG_SUPPORT_EMAIL  = "certchain.stellar@gmail.com"
+ORG_LICENSING      = "MIT"
+
+# ---------------------------------------------------------------------------
+# Principal contacts
+# ---------------------------------------------------------------------------
+
+[[PRINCIPALS]]
+name         = "CertChain Team"
+email        = "certchain.stellar@gmail.com"
+github       = "blessingsokeke618-sys"
+telegram     = ""
+twitter      = ""
+
+# ---------------------------------------------------------------------------
+# Stellar accounts used by CertChain
+# ---------------------------------------------------------------------------
+# SIGNING_KEY is the account that signs the stellar.toml for TOML-based
+# authentication (SEP-0010). It does NOT need to be the contract owner.
+#
+# ⚠️  Replace with a real funded Stellar account before going live.
+#     The address below is the testnet deployer address from the README.
+
+SIGNING_KEY = "GAMI3XDDII72W23RADNPPAZ2GYEZ2MTYXLETOU36R4ISXMQ7IURFEKFP"
+
+[[ACCOUNTS]]
+address = "GAMI3XDDII72W23RADNPPAZ2GYEZ2MTYXLETOU36R4ISXMQ7IURFEKFP"
+memo    = "CertChain testnet deployer and contract owner"
+
+# ---------------------------------------------------------------------------
+# Soroban smart contracts
+# ---------------------------------------------------------------------------
+
+[[CONTRACTS]]
+name        = "CertChainCredential"
+description = "Issues, stores, and verifies academic credentials on Stellar. Single unified contract replacing CredentialNFT + CredentialRegistry. Supports batch issuance, revocation, issuer authorization, issuer profiles, and timelocked WASM upgrades."
+version     = "2.0.0"
+network     = "testnet"
+address     = "CARWFW27MJ3OJADAUAHI3TDFHIL62YMLVEKTUTMSNXOMH7JJTNZKC3DK"
+source_url  = "https://github.com/blessingsokeke618-sys/CertChain-Blockchain-Academic-Credential-Verification-System/blob/main/contracts/src/lib.rs"
+# Uncomment and fill in after receiving a third-party audit:
+# audit_url = "https://example.com/certchain-audit-report.pdf"
+
+# Mainnet contract — update when mainnet deployment is complete.
+# [[CONTRACTS]]
+# name        = "CertChainCredential"
+# network     = "public"
+# address     = "<MAINNET_CONTRACT_ID>"
+
+# ---------------------------------------------------------------------------
+# Linked standards
+# ---------------------------------------------------------------------------
+# CertChain issues credentials formatted as W3C Verifiable Credentials and
+# Open Badges 3.0. Issuers are identified by did:stellar: DIDs.
+
+[[LINKED_STANDARDS]]
+name        = "W3C Verifiable Credentials Data Model"
+version     = "1.1"
+url         = "https://www.w3.org/TR/vc-data-model/"
+
+[[LINKED_STANDARDS]]
+name        = "IMS Open Badges 3.0"
+version     = "3.0"
+url         = "https://www.imsglobal.org/spec/ob/v3p0/"
+
+[[LINKED_STANDARDS]]
+name        = "SEP-0007 Stellar URI Scheme"
+version     = "1.0"
+url         = "https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0007.md"
+
+# ---------------------------------------------------------------------------
+# Notes for validators
+# ---------------------------------------------------------------------------
+# - This file is served under /.well-known/stellar.toml (Next.js routes
+#   static files from public/ to the root).
+# - The ORG_URL must match the domain serving this file for SEP-0001
+#   validation to pass.
+# - Update ORG_URL, SIGNING_KEY, ACCOUNTS, and the mainnet CONTRACTS entry
+#   before announcing mainnet availability.
