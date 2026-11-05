@@ -160,7 +160,6 @@ function getEventBodyV0(event: unknown): unknown {
 }
 
 function readEventContractId(event: unknown): string | null {
-function readEventContractId(event: unknown): string | null {
     const direct = (event as { contractId?: unknown }).contractId;
 
     if (typeof direct === 'string') {
