@@ -73,6 +73,12 @@ describe('admin authorization transaction verification', () => {
             isAuthorizedIssuerOnChain: vi.fn(async () => true),
         });
 
+        // Diagnostic: log the full result to CI output when the test fails
+        if (!result.ok) {
+            // eslint-disable-next-line no-console
+            console.error('DIAGNOSTIC result:', JSON.stringify(result));
+        }
+
         expect(result).toMatchObject({
             ok: true,
             walletAddress,
