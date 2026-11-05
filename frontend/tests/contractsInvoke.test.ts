@@ -1,4 +1,4 @@
-import { Account, Keypair, TransactionBuilder, nativeToScVal, xdr } from '@stellar/stellar-sdk';
+import { Account, Keypair, TransactionBuilder, nativeToScVal } from '@stellar/stellar-sdk';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -133,12 +133,13 @@ describe('invokeContractMethod with a keypair signer', () => {
         // `sendTransaction`'s stub takes no declared parameters, so the recorded
         // call is typed as an empty tuple; read it as unknown[] to inspect it.
         const [submitted] = rpc.sendTransaction.mock.calls[0] as unknown as [
-            { signatures: Array<{ signature: () => Buffer }>; hash: () => Buffer },
+            { signatures: Array<{ signature: { toXDR(): Buffer } }>; hash: () => Buffer },
         ];
         expect(submitted.signatures).toHaveLength(1);
-        expect(
-            issuerKeypair.verify(submitted.hash(), submitted.signatures[0].signature()),
-        ).toBe(true);
+        // stellar-sdk v17: DecoratedSignature.signature is an XDR opaque type.
+        // Strip the 4-byte length prefix to get the raw 64-byte ed25519 signature.
+        const rawSig = submitted.signatures[0].signature.toXDR().slice(4);
+        expect(issuerKeypair.verify(submitted.hash(), rawSig)).toBe(true);
     });
 
     it('passes the app’s network passphrase to the signer', async () => {
@@ -284,14 +285,15 @@ describe('invokeContractMethod with a keypair signer', () => {
         ];
         expect(simulated.operations).toHaveLength(1);
 
-        // Reaching into the invoke-host-function operation confirms the method
-        // name and argument survived transaction construction.
+        // stellar-sdk v17: func.invokeContract is a plain object property, not a method.
+        // functionName and args are also plain properties (XdrString and array).
         const invokeArgs = (
             simulated.operations[0] as unknown as {
-                func: { invokeContract: () => xdr.InvokeContractArgs };
+                func: { invokeContract: { functionName: { bytes: Uint8Array }; args: unknown[] } };
             }
-        ).func.invokeContract();
-        expect(invokeArgs.functionName().toString()).toBe('revoke_credential');
-        expect(invokeArgs.args()).toHaveLength(1);
+        ).func.invokeContract;
+        const fnName = Buffer.from(invokeArgs.functionName.bytes).toString('utf8');
+        expect(fnName).toBe('revoke_credential');
+        expect(invokeArgs.args).toHaveLength(1);
     });
 });

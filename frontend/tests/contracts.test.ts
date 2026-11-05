@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { xdr } from '@stellar/stellar-sdk';
 import { batchCredentialInputToScVal, describeBatchRowError, normalizeTokenId } from '../src/lib/contracts';
 
 describe('Soroban credential token IDs', () => {
@@ -44,12 +43,14 @@ describe('batchCredentialInputToScVal', () => {
             ipfsUri: 'ipfs://test',
         });
 
-        expect(scVal.switch()).toEqual(xdr.ScValType.scvMap());
-        const entries = scVal.map() ?? [];
+        // stellar-sdk v17: ScVal is a typed class hierarchy. Use constructor.name
+        // instead of .switch() and .value (getter) instead of .sym()/.map().
+        expect(scVal.constructor.name).toBe('ScValMap');
+        const entries = (scVal as unknown as { value: Array<{ key: unknown; val: unknown }> }).value ?? [];
         const keys = entries.map((entry) => {
-            const key = entry.key();
-            expect(key.switch()).toEqual(xdr.ScValType.scvSymbol());
-            return key.sym().toString();
+            const key = entry.key as { constructor: { name: string }; value: string };
+            expect(key.constructor.name).toBe('ScValSymbol');
+            return key.value;
         });
 
         expect(keys).toEqual(['credential_hash', 'ipfs_uri', 'student']);

@@ -32,11 +32,12 @@ function xdrAuthEvent(wallet = walletAddress, contract = contractId) {
     });
 
     return new xdr.ContractEvent({
-        ext: new xdr.ExtensionPoint(0),
-        contractId: contractBytes as any,
+        // stellar-sdk v17: XDR unions use per-variant factory methods, not constructors.
+        ext: xdr.ExtensionPoint.v0(),
+        contractId: contractBytes as unknown as ReturnType<typeof xdr.Hash.read>,
         type: xdr.ContractEventType.contract(),
-        body: new xdr.ContractEventBody(0, body as any),
-    }) as any;
+        body: new xdr.ContractEventBody(0, body as unknown as ReturnType<typeof xdr.ContractEventV0.read>),
+    }) as unknown as ReturnType<typeof xdr.ContractEvent.read>;
 }
 
 function successTransaction(event = authEvent()) {

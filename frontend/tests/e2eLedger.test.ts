@@ -37,7 +37,7 @@ function seedState(overrides: Partial<E2eState> = {}): E2eState {
     };
 
     vi.stubGlobal('window', {
-        __ACREDIA_E2E__: state,
+        __CERTCHAIN_E2E__: state,
         sessionStorage: { setItem: vi.fn() },
     });
 
@@ -118,7 +118,7 @@ describe('e2eLedgerReads', () => {
     it('returns null when E2E is not driving, so callers fall through', () => {
         // Null rather than a value: the real ledger must be consulted when the
         // suite is not running, and a falsy answer would be ambiguous.
-        vi.stubGlobal('window', { __ACREDIA_E2E__: undefined });
+        vi.stubGlobal('window', { __CERTCHAIN_E2E__: undefined });
         expect(e2eLedgerReads.contractOwner()).toBeNull();
         expect(e2eLedgerReads.isAuthorizedIssuer(ISSUER)).toBeNull();
     });
@@ -186,7 +186,7 @@ describe('e2eLedgerWrites', () => {
     });
 
     it('fails loudly if the fake outlives its state', () => {
-        vi.stubGlobal('window', { __ACREDIA_E2E__: undefined });
+        vi.stubGlobal('window', { __CERTCHAIN_E2E__: undefined });
         expect(() => e2eLedgerWrites.issueCredential(ISSUER)).toThrow(/nothing to act on/i);
     });
 });
