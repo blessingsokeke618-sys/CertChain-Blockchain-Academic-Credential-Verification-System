@@ -207,10 +207,11 @@ function readEventData(event: unknown): string | null {
     }
 
     const bodyV0 = getEventBodyV0(event);
+    // stellar-sdk v17: bodyV0.data is a plain ScVal property, not a function.
     const data =
         bodyV0 && typeof (bodyV0 as { data?: unknown }).data === 'function'
             ? (bodyV0 as { data: () => unknown }).data()
-            : null;
+            : ((bodyV0 as { data?: unknown }).data ?? null);
 
     return scValToComparableString(data);
 }
