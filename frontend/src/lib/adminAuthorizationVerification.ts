@@ -188,10 +188,11 @@ function readEventTopics(event: unknown): string[] {
     }
 
     const bodyV0 = getEventBodyV0(event);
+    // stellar-sdk v17: bodyV0.topics is a plain array property, not a function.
     const topics =
         bodyV0 && typeof (bodyV0 as { topics?: unknown }).topics === 'function'
             ? (bodyV0 as { topics: () => unknown[] }).topics()
-            : null;
+            : ((bodyV0 as { topics?: unknown }).topics ?? null);
 
     return Array.isArray(topics)
         ? topics

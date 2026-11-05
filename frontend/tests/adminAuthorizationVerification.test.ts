@@ -67,34 +67,11 @@ describe('admin authorization transaction verification', () => {
     });
 
     it('accepts actual Stellar XDR contract events returned by RPC', async () => {
-        const xdrEvent = xdrAuthEvent();
-        // Diagnostic: log the event structure to understand the v17 XDR shape
-        // eslint-disable-next-line no-console
-        console.error('DIAGNOSTIC event.constructor:', xdrEvent?.constructor?.name);
-        // eslint-disable-next-line no-console
-        console.error('DIAGNOSTIC event.body type:', typeof (xdrEvent as Record<string, unknown>)?.body, (xdrEvent as Record<string, unknown>)?.body?.constructor?.name);
-        const bodyObj = (xdrEvent as Record<string, unknown>)?.body as Record<string, unknown> | undefined;
-        // eslint-disable-next-line no-console
-        console.error('DIAGNOSTIC body.v0 type:', typeof bodyObj?.v0, bodyObj?.v0?.constructor?.name);
-        const v0Obj = bodyObj?.v0 as Record<string, unknown> | undefined;
-        // eslint-disable-next-line no-console
-        console.error('DIAGNOSTIC v0.topics type:', typeof v0Obj?.topics, Array.isArray(v0Obj?.topics) ? 'array' : '');
-        // eslint-disable-next-line no-console
-        console.error('DIAGNOSTIC v0.data type:', typeof v0Obj?.data, v0Obj?.data?.constructor?.name);
-        // eslint-disable-next-line no-console
-        console.error('DIAGNOSTIC event.contractId type:', typeof (xdrEvent as Record<string, unknown>)?.contractId, (xdrEvent as Record<string, unknown>)?.contractId?.constructor?.name);
-
         const result = await verifyAdminAuthorizationTransaction(walletAddress, transactionHash, {
             contractId,
-            server: fakeServer(successTransaction(xdrEvent)),
+            server: fakeServer(successTransaction(xdrAuthEvent())),
             isAuthorizedIssuerOnChain: vi.fn(async () => true),
         });
-
-        // Diagnostic: log the full result to CI output when the test fails
-        if (!result.ok) {
-            // eslint-disable-next-line no-console
-            console.error('DIAGNOSTIC result:', JSON.stringify(result));
-        }
 
         expect(result).toMatchObject({
             ok: true,
