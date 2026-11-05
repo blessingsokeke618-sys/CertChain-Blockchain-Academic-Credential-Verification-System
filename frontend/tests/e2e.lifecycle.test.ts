@@ -562,6 +562,14 @@ describe('Academic Credential E2E Integration / Lifecycle', () => {
             // in the admin console rather than silently degrading to
             // per-instance limits. No UPSTASH_REDIS_* vars exist under test.
             rateLimiterMode: 'in-memory-unconfigured',
+            // TTL keeper state — the mockDbChain returns null for the
+            // cron_run_log query, so all fields are null.
+            ttlKeeper: {
+                lastRunAt: null,
+                lastRunId: null,
+                lastRunStatus: null,
+                lastRunSummary: null,
+            },
         });
     });
 });
