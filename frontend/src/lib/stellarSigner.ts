@@ -65,7 +65,9 @@ export function createKeypairSigner(keypair: Keypair): StellarSigner {
         },
 
         async signMessage(message: string): Promise<string> {
-            return keypair.sign(Buffer.from(message, 'utf8')).toString('base64');
+            // stellar-sdk v17: sign() returns Uint8Array, not Buffer.
+            // Wrap in Buffer before calling .toString('base64').
+            return Buffer.from(keypair.sign(Buffer.from(message, 'utf8'))).toString('base64');
         },
     };
 }

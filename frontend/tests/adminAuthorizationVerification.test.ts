@@ -31,13 +31,14 @@ function xdrAuthEvent(wallet = walletAddress, contract = contractId) {
         data: new Address(wallet).toScVal(),
     });
 
+    // stellar-sdk v17: ContractEventType is a plain enum object (not a factory method),
+    // ContractEventBody uses per-variant factory (.v0()), ContractEvent is a plain struct.
     return new xdr.ContractEvent({
-        // stellar-sdk v17: XDR unions use per-variant factory methods, not constructors.
         ext: xdr.ExtensionPoint.v0(),
-        contractId: contractBytes as unknown as ReturnType<typeof xdr.Hash.read>,
-        type: xdr.ContractEventType.contract(),
-        body: new xdr.ContractEventBody(0, body as unknown as ReturnType<typeof xdr.ContractEventV0.read>),
-    }) as unknown as ReturnType<typeof xdr.ContractEvent.read>;
+        contractId: contractBytes as unknown as Buffer,
+        type: xdr.ContractEventType.contract,
+        body: xdr.ContractEventBody.v0(body as unknown as ReturnType<typeof xdr.ContractEventV0.fromXdrObject>),
+    }) as unknown as ReturnType<typeof xdr.ContractEvent.fromXdrObject>;
 }
 
 function successTransaction(event = authEvent()) {

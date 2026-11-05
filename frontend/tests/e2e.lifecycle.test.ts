@@ -505,6 +505,8 @@ describe('Academic Credential E2E Integration / Lifecycle', () => {
             eq: vi.fn().mockReturnThis(),
             gte: vi.fn().mockReturnThis(),
             not: vi.fn().mockReturnThis(),
+            order: vi.fn().mockReturnThis(),
+            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
             maybeSingle: vi.fn().mockResolvedValue({
                 data: { last_ledger: 0, updated_at: null },
                 error: null,
