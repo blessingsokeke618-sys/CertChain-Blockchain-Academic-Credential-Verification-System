@@ -22,11 +22,15 @@ describe('credential hash Stellar encoding', () => {
         expect(credentialHashBytesToHex(bytes)).toBe(normalized);
     });
 
-    it('builds a 32-byte ScVal for the Soroban ABI', () => {
+    it('builds a 32-byte ScVal for the Soroban ABI', async () => {
         const scVal = credentialHashHexToScVal(hash);
 
-        expect(scVal.switch().name).toBe('scvBytes');
-        expect(scVal.bytes()).toHaveLength(32);
+        // stellar-sdk v17: ScVal is a typed class — ScValBytes — not a discriminated union.
+        // .switch() and .bytes() are gone; use constructor.name and scValToNative().
+        expect(scVal.constructor.name).toBe('ScValBytes');
+        const { scValToNative } = await import('@stellar/stellar-sdk');
+        const raw = scValToNative(scVal);
+        expect(raw).toHaveLength(32);
     });
 
     it('rejects non-SHA-256 hash values', () => {

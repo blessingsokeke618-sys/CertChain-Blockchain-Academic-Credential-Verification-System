@@ -57,7 +57,10 @@ describe('createKeypairSigner', () => {
         expect(signed.signatures).toHaveLength(1);
 
         const hash = signed.hash();
-        expect(keypair.verify(hash, signed.signatures[0].signature())).toBe(true);
+        // stellar-sdk v17: DecoratedSignature.signature is an XDR opaque type,
+        // not a function. Extract raw bytes by stripping the 4-byte XDR length prefix.
+        const sigBytes = signed.signatures[0].signature.toXDR().slice(4);
+        expect(keypair.verify(hash, sigBytes)).toBe(true);
     });
 
     it('signs for the network it is told, not one it assumed', async () => {
@@ -76,8 +79,12 @@ describe('createKeypairSigner', () => {
         // signed for two networks yields two different signatures. If these
         // matched, the signer would be ignoring the passphrase — the bug that
         // gets a transaction signed against the wrong ledger.
+        // stellar-sdk v17: DecoratedSignature.signature is an XDR opaque type.
+        // Extract raw 64-byte signature by stripping the 4-byte XDR length prefix.
         const sigOf = (value: string, passphrase: string) =>
-            TransactionBuilder.fromXDR(value, passphrase).signatures[0].signature().toString('hex');
+            Buffer.from(
+                TransactionBuilder.fromXDR(value, passphrase).signatures[0].signature.toXDR().slice(4),
+            ).toString('hex');
 
         expect(sigOf(onTestnet, NETWORK_PASSPHRASE)).not.toBe(
             sigOf(onPublic, 'Public Global Stellar Network ; September 2015'),

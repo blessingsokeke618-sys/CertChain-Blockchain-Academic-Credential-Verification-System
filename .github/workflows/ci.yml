@@ -197,4 +197,9 @@ jobs:
         run: cargo test --lib
 
       - name: Run Clippy Linter
+        # SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2 must be set so
+        # soroban-sdk's build.rs does not abort; it is normally set by
+        # 'stellar contract build' but clippy invokes cargo directly.
+        env:
+          SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2: "1"
         run: cargo clippy --target wasm32v1-none

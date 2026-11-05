@@ -116,6 +116,18 @@ function happySupabaseClient() {
                     })),
                 };
             }
+            if (table === 'cron_run_log') {
+                // stats route queries: .from('cron_run_log').select(...).eq(...).order(...).limit(1)
+                return {
+                    select: vi.fn(() => ({
+                        eq: vi.fn(() => ({
+                            order: vi.fn(() => ({
+                                limit: vi.fn(() => Promise.resolve({ data: [], error: null })),
+                            })),
+                        })),
+                    })),
+                };
+            }
             return {
                 select: vi.fn(() => ({
                     count: 0,
