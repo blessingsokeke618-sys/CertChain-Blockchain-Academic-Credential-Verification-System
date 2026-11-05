@@ -334,7 +334,7 @@ describe('connect', () => {
 
         await stellarKitAdapter.connect();
 
-        expect(window.localStorage.getItem('acredia.wallet.selectedId')).toBe('lobstr');
+        expect(window.localStorage.getItem('certchain.wallet.selectedId')).toBe('lobstr');
     });
 
     it('reports a dismissed modal as a user rejection, not a failure', async () => {
@@ -349,7 +349,7 @@ describe('connect', () => {
 describe('restore', () => {
     it('never prompts the wallet on page load', async () => {
         const { stellarKitAdapter } = await loadAdapter();
-        window.localStorage.setItem('acredia.wallet.selectedId', 'freighter');
+        window.localStorage.setItem('certchain.wallet.selectedId', 'freighter');
 
         await stellarKitAdapter.restore();
 
@@ -369,7 +369,7 @@ describe('restore', () => {
 
     it('stays disconnected when the wallet is locked or uninstalled', async () => {
         const { stellarKitAdapter } = await loadAdapter();
-        window.localStorage.setItem('acredia.wallet.selectedId', 'freighter');
+        window.localStorage.setItem('certchain.wallet.selectedId', 'freighter');
         kitMock.getAddress.mockRejectedValueOnce(new Error('Wallet is locked'));
 
         expect(await stellarKitAdapter.restore()).toBeNull();
@@ -377,7 +377,7 @@ describe('restore', () => {
 
     it('restores the remembered wallet with its capabilities', async () => {
         const { stellarKitAdapter } = await loadAdapter();
-        window.localStorage.setItem('acredia.wallet.selectedId', 'rabet');
+        window.localStorage.setItem('certchain.wallet.selectedId', 'rabet');
 
         const restored = await stellarKitAdapter.restore();
 
@@ -507,7 +507,7 @@ describe('network selection', () => {
 describe('kit lifecycle', () => {
     it('initialises once even under concurrent callers', async () => {
         const { stellarKitAdapter } = await loadAdapter();
-        window.localStorage.setItem('acredia.wallet.selectedId', 'freighter');
+        window.localStorage.setItem('certchain.wallet.selectedId', 'freighter');
 
         // A restore on mount racing a click on Connect must not init twice —
         // the kit's API is static, and a second init resets the selection.
@@ -522,12 +522,12 @@ describe('kit lifecycle', () => {
 
     it('clears the remembered wallet on disconnect', async () => {
         const { stellarKitAdapter } = await loadAdapter();
-        window.localStorage.setItem('acredia.wallet.selectedId', 'freighter');
+        window.localStorage.setItem('certchain.wallet.selectedId', 'freighter');
 
         await stellarKitAdapter.restore();
         await stellarKitAdapter.disconnect();
 
-        expect(window.localStorage.getItem('acredia.wallet.selectedId')).toBeNull();
+        expect(window.localStorage.getItem('certchain.wallet.selectedId')).toBeNull();
         expect(kitMock.disconnect).toHaveBeenCalled();
     });
 
