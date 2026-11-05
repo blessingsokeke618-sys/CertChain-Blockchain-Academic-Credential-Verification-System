@@ -70,7 +70,14 @@ vi.mock('../src/lib/supabase', () => ({
             select: vi.fn(() => ({
                 eq: vi.fn(() => ({
                     maybeSingle: mockSupabaseMaybeSingle,
+                    order: vi.fn(() => ({
+                        limit: vi.fn(() => Promise.resolve({ data: [], error: null })),
+                    })),
                 })),
+                order: vi.fn(() => ({
+                    limit: vi.fn(() => Promise.resolve({ data: [], error: null })),
+                })),
+                limit: vi.fn(() => Promise.resolve({ data: [], error: null })),
             })),
             insert: mockSupabaseInsert,
         })),
