@@ -117,12 +117,16 @@ function happySupabaseClient() {
                 };
             }
             if (table === 'cron_run_log') {
-                // stats route queries: .from('cron_run_log').select(...).eq(...).order(...).limit(1)
+                // stats route: .select(...).eq(...).order(...).limit(1).maybeSingle()
                 return {
                     select: vi.fn(() => ({
                         eq: vi.fn(() => ({
                             order: vi.fn(() => ({
-                                limit: vi.fn(() => Promise.resolve({ data: [], error: null })),
+                                limit: vi.fn(() => ({
+                                    maybeSingle: vi.fn(() =>
+                                        Promise.resolve({ data: null, error: null }),
+                                    ),
+                                })),
                             })),
                         })),
                     })),
