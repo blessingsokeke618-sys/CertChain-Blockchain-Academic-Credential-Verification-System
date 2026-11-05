@@ -189,7 +189,9 @@ jobs:
         run: cargo fmt -- --check
 
       - name: Compile to optimized WASM
-        run: cargo build --target wasm32v1-none --release
+        # soroban-sdk v29 build.rs checks for SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2
+        # which is only set by `stellar contract build`. Using cargo build directly fails.
+        run: stellar contract build
 
       - name: Run Contract Tests
         run: cargo test --lib
