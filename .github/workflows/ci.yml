@@ -164,6 +164,14 @@ jobs:
           rustup default stable
           rustup target add wasm32v1-none
 
+      - name: Install Stellar CLI
+        run: |
+          # Install stellar-cli v25.2.0+ required by soroban-sdk v29.
+          # Using cargo install with a pinned version is the most reliable
+          # cross-platform approach in CI (no curl-pipe-sh dependency).
+          cargo install --locked stellar-cli --version 25.4.0 2>&1 | tail -3
+          stellar --version
+
       - name: Cache Cargo Dependencies
         uses: actions/cache@v6
         with:
