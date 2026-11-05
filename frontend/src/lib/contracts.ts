@@ -152,7 +152,6 @@ export async function invokeContractMethod(
     const resultValue = getSorobanTransactionResult(simResult);
 
     // Wait for on-chain confirmation
-    // eslint-disable-next-line no-console
     debugLog(`⏳ Waiting for confirmation (hash: ${sendResponse.hash})...`);
     const confirmation = await waitForConfirmation(sendResponse.hash);
     debugLog(`✅ ${method} confirmed on-chain.`);

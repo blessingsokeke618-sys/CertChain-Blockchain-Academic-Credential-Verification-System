@@ -37,7 +37,7 @@ const BATCH_LIMIT = 500;
 
 // Minimum remaining ledgers that triggers a bump call (≈ 6 months, matching
 // the PERSISTENT_THRESHOLD constant in the contract).
-const TTL_THRESHOLD_LEDGERS = 3_110_400; // ~6 months @ 5 s/ledger
+const _TTL_THRESHOLD_LEDGERS = 3_110_400; // ~6 months @ 5 s/ledger
 
 // Minimum XLM balance for the keeper fee account. Alert when below this.
 const KEEPER_MIN_BALANCE_XLM = 5;
@@ -87,7 +87,7 @@ async function bumpCredentialOnChain(tokenId: string): Promise<{ success: boolea
         // bump_credential is permissionless — any funded account can call it.
         // It calls extend_credential_ttl internally; it is a no-op (succeeds
         // without writing) when the TTL is already above PERSISTENT_THRESHOLD.
-        const { SorobanRpc, TransactionBuilder, Networks, BASE_FEE, Keypair, Contract, nativeToScVal, xdr } = await import('@stellar/stellar-sdk');
+        const { SorobanRpc, TransactionBuilder, Networks, BASE_FEE, Keypair, Contract, nativeToScVal } = await import('@stellar/stellar-sdk');
 
         const keypair = Keypair.fromSecret(keeperSecret);
         const server = new SorobanRpc.Server(rpc.serverUrl);
