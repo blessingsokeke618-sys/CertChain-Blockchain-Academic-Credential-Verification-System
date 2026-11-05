@@ -190,11 +190,9 @@ fn append_to_address_index(env: &Env, key: &DataKey, token_id: u64) {
         .unwrap_or_else(|| Vec::new(env));
     list.push_back(token_id);
     env.storage().persistent().set(key, &list);
-    env.storage().persistent().extend_ttl(
-        key,
-        PERSISTENT_THRESHOLD,
-        PERSISTENT_BUMP_AMOUNT,
-    );
+    env.storage()
+        .persistent()
+        .extend_ttl(key, PERSISTENT_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 }
 
 fn require_initialized(env: &Env) {
@@ -685,7 +683,11 @@ impl CertChainCredential {
             extend_credential_ttl(&env, token_id, &input.credential_hash);
 
             // ── CertChain v2: per-student / per-issuer index ──
-            append_to_address_index(&env, &DataKey::StudentIndex(input.student.clone()), token_id);
+            append_to_address_index(
+                &env,
+                &DataKey::StudentIndex(input.student.clone()),
+                token_id,
+            );
             append_to_address_index(&env, &DataKey::IssuerIndex(issuer.clone()), token_id);
 
             seen_hashes.push_back(input.credential_hash.clone());
@@ -1578,7 +1580,8 @@ mod tests {
                 dummy_batch_input(&env, 90, &student),
                 dummy_batch_input(&env, 91, &student),
             ];
-            CertChainCredential::batch_issue_credential(env.clone(), issuer.clone(), items).unwrap();
+            CertChainCredential::batch_issue_credential(env.clone(), issuer.clone(), items)
+                .unwrap();
         });
 
         assert_eq!(
@@ -2241,7 +2244,8 @@ mod tests {
             assert!(row.success);
             assert_eq!(row.error_code, 0);
 
-            let credential = CertChainCredential::get_credential(env.clone(), row.token_id).unwrap();
+            let credential =
+                CertChainCredential::get_credential(env.clone(), row.token_id).unwrap();
             assert_eq!(credential.ipfs_hash, uri);
         });
     }
@@ -3079,21 +3083,33 @@ mod tests {
         // Issue three credentials from the same issuer.
         let id1 = env.as_contract(&contract, || {
             CertChainCredential::issue_credential(
-                env.clone(), student.clone(), issuer.clone(),
-                dummy_hash(&env, 110), String::from_str(&env, "ipfs://i1"),
-            ).unwrap()
+                env.clone(),
+                student.clone(),
+                issuer.clone(),
+                dummy_hash(&env, 110),
+                String::from_str(&env, "ipfs://i1"),
+            )
+            .unwrap()
         });
         let id2 = env.as_contract(&contract, || {
             CertChainCredential::issue_credential(
-                env.clone(), student.clone(), issuer.clone(),
-                dummy_hash(&env, 111), String::from_str(&env, "ipfs://i2"),
-            ).unwrap()
+                env.clone(),
+                student.clone(),
+                issuer.clone(),
+                dummy_hash(&env, 111),
+                String::from_str(&env, "ipfs://i2"),
+            )
+            .unwrap()
         });
         let id3 = env.as_contract(&contract, || {
             CertChainCredential::issue_credential(
-                env.clone(), student.clone(), issuer.clone(),
-                dummy_hash(&env, 112), String::from_str(&env, "ipfs://i3"),
-            ).unwrap()
+                env.clone(),
+                student.clone(),
+                issuer.clone(),
+                dummy_hash(&env, 112),
+                String::from_str(&env, "ipfs://i3"),
+            )
+            .unwrap()
         });
 
         env.as_contract(&contract, || {
@@ -3127,8 +3143,7 @@ mod tests {
             CertChainCredential::batch_issue_credential(env.clone(), issuer.clone(), items)
                 .unwrap();
 
-            let student_ids =
-                CertChainCredential::get_credentials_by_student(env.clone(), student);
+            let student_ids = CertChainCredential::get_credentials_by_student(env.clone(), student);
             assert_eq!(student_ids.len(), 2);
 
             let issuer_ids = CertChainCredential::get_credentials_by_issuer(env.clone(), issuer);
