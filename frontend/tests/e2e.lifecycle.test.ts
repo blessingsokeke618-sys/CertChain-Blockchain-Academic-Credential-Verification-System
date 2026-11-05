@@ -71,11 +71,19 @@ vi.mock('../src/lib/supabase', () => ({
                 eq: vi.fn(() => ({
                     maybeSingle: mockSupabaseMaybeSingle,
                     order: vi.fn(() => ({
-                        limit: vi.fn(() => Promise.resolve({ data: [], error: null })),
+                        limit: vi.fn(() => ({
+                            maybeSingle: vi.fn(() =>
+                                Promise.resolve({ data: null, error: null }),
+                            ),
+                        })),
                     })),
                 })),
                 order: vi.fn(() => ({
-                    limit: vi.fn(() => Promise.resolve({ data: [], error: null })),
+                    limit: vi.fn(() => ({
+                        maybeSingle: vi.fn(() =>
+                            Promise.resolve({ data: null, error: null }),
+                        ),
+                    })),
                 })),
                 limit: vi.fn(() => Promise.resolve({ data: [], error: null })),
             })),
@@ -506,7 +514,9 @@ describe('Academic Credential E2E Integration / Lifecycle', () => {
             gte: vi.fn().mockReturnThis(),
             not: vi.fn().mockReturnThis(),
             order: vi.fn().mockReturnThis(),
-            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+            limit: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+            }),
             maybeSingle: vi.fn().mockResolvedValue({
                 data: { last_ledger: 0, updated_at: null },
                 error: null,

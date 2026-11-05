@@ -160,6 +160,7 @@ function getEventBodyV0(event: unknown): unknown {
 }
 
 function readEventContractId(event: unknown): string | null {
+function readEventContractId(event: unknown): string | null {
     const direct = (event as { contractId?: unknown }).contractId;
 
     if (typeof direct === 'string') {
@@ -168,6 +169,12 @@ function readEventContractId(event: unknown): string | null {
 
     if (typeof direct === 'function') {
         return encodeContractAddress((event as { contractId: () => unknown }).contractId());
+    }
+
+    // stellar-sdk v17: ContractEvent.contractId is a raw Uint8Array (32 bytes).
+    // Route through encodeContractAddress which handles Uint8Array → StrKey.encodeContract.
+    if (direct != null) {
+        return encodeContractAddress(direct);
     }
 
     return null;
