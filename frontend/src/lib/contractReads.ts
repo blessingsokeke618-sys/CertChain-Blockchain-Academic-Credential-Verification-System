@@ -175,11 +175,9 @@ export function normalizeOnChainCredential(result: unknown): OnChainCredential |
 }
 
 function toU64ScVal(tokenId: string | number): xdr.ScVal {
-    try {
-        return nativeToScVal(BigInt(tokenId), { type: 'u64' });
-    } catch {
-        return xdr.ScVal.scvU64(new xdr.Uint64(BigInt(tokenId)));
-    }
+    // stellar-sdk v17: nativeToScVal handles BigInt → u64 ScVal directly.
+    // The old fallback used `new xdr.Uint64()` which doesn't exist in v17.
+    return nativeToScVal(BigInt(tokenId), { type: 'u64' });
 }
 
 /**

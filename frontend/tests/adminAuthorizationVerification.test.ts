@@ -35,7 +35,7 @@ function xdrAuthEvent(wallet = walletAddress, contract = contractId) {
     // ContractEventBody uses per-variant factory (.v0()), ContractEvent is a plain struct.
     return new xdr.ContractEvent({
         ext: xdr.ExtensionPoint.v0(),
-        contractId: contractBytes as unknown as Buffer,
+        contractId: contractBytes as unknown as ConstructorParameters<typeof xdr.ContractEvent>[0]['contractId'],
         type: xdr.ContractEventType.contract,
         body: xdr.ContractEventBody.v0(body as unknown as ReturnType<typeof xdr.ContractEventV0.fromXdrObject>),
     }) as unknown as ReturnType<typeof xdr.ContractEvent.fromXdrObject>;

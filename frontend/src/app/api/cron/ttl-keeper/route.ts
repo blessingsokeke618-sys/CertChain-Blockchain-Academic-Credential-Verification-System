@@ -87,10 +87,10 @@ async function bumpCredentialOnChain(tokenId: string): Promise<{ success: boolea
         // bump_credential is permissionless — any funded account can call it.
         // It calls extend_credential_ttl internally; it is a no-op (succeeds
         // without writing) when the TTL is already above PERSISTENT_THRESHOLD.
-        const { SorobanRpc, TransactionBuilder, Networks, BASE_FEE, Keypair, Contract, nativeToScVal } = await import('@stellar/stellar-sdk');
+        const { rpc: StellarRpc, TransactionBuilder, Networks, BASE_FEE, Keypair, Contract, nativeToScVal } = await import('@stellar/stellar-sdk');
 
         const keypair = Keypair.fromSecret(keeperSecret);
-        const server = new SorobanRpc.Server(rpc.serverUrl);
+        const server = new StellarRpc.Server(rpc.serverURL);
         const account = await server.getAccount(keypair.publicKey());
 
         const contract = new Contract(contractId);
@@ -105,11 +105,11 @@ async function bumpCredentialOnChain(tokenId: string): Promise<{ success: boolea
             .build();
 
         const sim = await server.simulateTransaction(tx);
-        if (SorobanRpc.Api.isSimulationError(sim)) {
+        if (StellarRpc.Api.isSimulationError(sim)) {
             return { success: false, ttlLedgers: null };
         }
 
-        const prepared = SorobanRpc.assembleTransaction(tx, sim).build();
+        const prepared = StellarRpc.assembleTransaction(tx, sim).build();
         prepared.sign(keypair);
 
         const result = await server.sendTransaction(prepared);
@@ -120,13 +120,13 @@ async function bumpCredentialOnChain(tokenId: string): Promise<{ success: boolea
         // Poll for completion
         let getResult = await server.getTransaction(result.hash);
         let attempts = 0;
-        while (getResult.status === SorobanRpc.Api.GetTransactionStatus.NOT_FOUND && attempts < 10) {
+        while (getResult.status === StellarRpc.Api.GetTransactionStatus.NOT_FOUND && attempts < 10) {
             await new Promise((r) => setTimeout(r, 2000));
             getResult = await server.getTransaction(result.hash);
             attempts++;
         }
 
-        const succeeded = getResult.status === SorobanRpc.Api.GetTransactionStatus.SUCCESS;
+        const succeeded = getResult.status === StellarRpc.Api.GetTransactionStatus.SUCCESS;
         return { success: succeeded, ttlLedgers: null };
     } catch {
         return { success: false, ttlLedgers: null };
@@ -246,13 +246,17 @@ export async function GET(request: NextRequest) {
         structuredLog('INFO', 'TTL keeper run completed', requestId, summary);
 
         // Persist run record for dashboard visibility.
-        await supabase.from('cron_run_log').upsert({
-            job_name: 'ttl-keeper',
-            run_id: runId,
-            status: bumpFailed > 0 ? 'partial' : 'succeeded',
-            summary: summary as unknown as Record<string, unknown>,
-            completed_at: new Date().toISOString(),
-        }).then(() => undefined).catch(() => undefined); // Non-fatal
+        try {
+            await supabase.from('cron_run_log').upsert({
+                job_name: 'ttl-keeper',
+                run_id: runId,
+                status: bumpFailed > 0 ? 'partial' : 'succeeded',
+                summary: summary as unknown as Record<string, unknown>,
+                completed_at: new Date().toISOString(),
+            });
+        } catch {
+            // Non-fatal — the run still succeeded even if the log wasn't persisted
+        }
 
         return NextResponse.json({ success: true, ...summary });
     } catch (error) {
