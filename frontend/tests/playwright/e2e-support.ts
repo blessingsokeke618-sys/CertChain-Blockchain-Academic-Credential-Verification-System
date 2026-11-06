@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import type { E2eAdminInstitution, E2eAdminStats, E2eState } from '@/lib/e2e';
+import type { E2eAdminInstitution, E2eAdminStats, E2eIssuedCredential, E2eState } from '@/lib/e2e';
 
 export function createE2eState(overrides: Partial<E2eState> = {}): E2eState {
     return {
@@ -74,17 +74,17 @@ export function createAdminInstitution(
 
 export async function seedE2eState(page: Page, state: E2eState) {
     await page.addInitScript((initialState) => {
-        const stored = window.sessionStorage.getItem('__ACREDIA_E2E__');
+        const stored = window.sessionStorage.getItem('__CERTCHAIN_E2E__');
         if (stored) {
             try {
-                window.__ACREDIA_E2E__ = JSON.parse(stored);
+                window.__CERTCHAIN_E2E__ = JSON.parse(stored);
                 return;
             } catch {
                 // Fall back to initial state on parse failure
             }
         }
-        window.__ACREDIA_E2E__ = initialState as typeof window.__ACREDIA_E2E__;
-        window.sessionStorage.setItem('__ACREDIA_E2E__', JSON.stringify(initialState));
+        window.__CERTCHAIN_E2E__ = initialState as typeof window.__CERTCHAIN_E2E__;
+        window.sessionStorage.setItem('__CERTCHAIN_E2E__', JSON.stringify(initialState));
     }, state);
 }
 
@@ -98,8 +98,8 @@ export async function seedE2eState(page: Page, state: E2eState) {
  */
 export async function applyE2eState(page: Page, state: E2eState) {
     await page.evaluate((next) => {
-        window.__ACREDIA_E2E__ = next as typeof window.__ACREDIA_E2E__;
-        window.sessionStorage.setItem('__ACREDIA_E2E__', JSON.stringify(next));
+        window.__CERTCHAIN_E2E__ = next as typeof window.__CERTCHAIN_E2E__;
+        window.sessionStorage.setItem('__CERTCHAIN_E2E__', JSON.stringify(next));
     }, state);
     await page.reload();
 }
@@ -113,7 +113,7 @@ export async function applyE2eState(page: Page, state: E2eState) {
  */
 async function readE2eState(page: Page) {
     try {
-        return await page.evaluate(() => window.__ACREDIA_E2E__);
+        return await page.evaluate(() => window.__CERTCHAIN_E2E__);
     } catch {
         return null;
     }
@@ -220,7 +220,7 @@ export async function installE2eRoutes(page: Page) {
     await page.route('**/api/verify/**', async (route) => {
         const token = new URL(route.request().url()).pathname.split('/').pop() ?? '';
         const state = await readE2eState(page);
-        const credential = state?.issuedCredentials?.find((entry) => entry.token_id === token) ?? null;
+        const credential = state?.issuedCredentials?.find((entry: E2eIssuedCredential) => entry.token_id === token) ?? null;
 
         if (!credential) {
             await route.fulfill({
