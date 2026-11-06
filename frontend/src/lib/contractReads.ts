@@ -27,6 +27,14 @@ const DUMMY_SOURCE = CONTRACT_ID;
 
 const server = new rpc.Server(RPC_URL);
 
+/**
+ * Returns the shared Soroban RPC server instance.
+ * Used by the TTL keeper cron route and other server-side workers.
+ */
+export function getRpcClient(): rpc.Server {
+    return server;
+}
+
 export class ContractConfigurationError extends Error {
     constructor(message: string = 'Missing contract configuration') {
         super(message);
