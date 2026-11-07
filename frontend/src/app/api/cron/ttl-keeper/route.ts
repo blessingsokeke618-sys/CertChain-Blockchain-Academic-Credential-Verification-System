@@ -90,7 +90,7 @@ async function bumpCredentialOnChain(tokenId: string): Promise<{ success: boolea
         const { rpc: StellarRpc, TransactionBuilder, Networks, BASE_FEE, Keypair, Contract, nativeToScVal } = await import('@stellar/stellar-sdk');
 
         const keypair = Keypair.fromSecret(keeperSecret);
-        const server = new StellarRpc.Server(rpc.serverURL);
+        const server = new StellarRpc.Server(rpc.serverURL.toString());
         const account = await server.getAccount(keypair.publicKey());
 
         const contract = new Contract(contractId);
@@ -251,7 +251,7 @@ export async function GET(request: NextRequest) {
                 job_name: 'ttl-keeper',
                 run_id: runId,
                 status: bumpFailed > 0 ? 'partial' : 'succeeded',
-                summary: summary as unknown as Record<string, unknown>,
+                summary: JSON.parse(JSON.stringify(summary)) as Record<string, unknown>,
                 completed_at: new Date().toISOString(),
             });
         } catch {
