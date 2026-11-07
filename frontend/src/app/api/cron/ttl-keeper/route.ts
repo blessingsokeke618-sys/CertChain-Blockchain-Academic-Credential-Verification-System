@@ -251,7 +251,7 @@ export async function GET(request: NextRequest) {
                 job_name: 'ttl-keeper',
                 run_id: runId,
                 status: bumpFailed > 0 ? 'partial' : 'succeeded',
-                summary: JSON.parse(JSON.stringify(summary)) as Record<string, unknown>,
+                summary: { ...summary, failedTokenIds: [...summary.failedTokenIds] } as unknown as Record<string, unknown>,
                 completed_at: new Date().toISOString(),
             });
         } catch {
