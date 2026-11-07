@@ -243,7 +243,7 @@ export async function GET(request: NextRequest) {
             durationMs,
         });
 
-        structuredLog('INFO', 'TTL keeper run completed', requestId, summary);
+        structuredLog('INFO', 'TTL keeper run completed', requestId, summary as Record<string, unknown>);
 
         // Persist run record for dashboard visibility.
         try {
