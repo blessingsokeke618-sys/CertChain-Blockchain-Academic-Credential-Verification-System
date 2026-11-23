@@ -21,7 +21,9 @@ VERSION = "2.0"
 [DOCUMENTATION]
 ORG_NAME           = "CertChain"
 ORG_DBA            = "CertChain — Blockchain Academic Credential Verification"
-ORG_URL            = "https://acredia-stellar-tau.vercel.app"
+# Canonical public URL, including the trailing slash used by the live app link
+# in README.md. The deploy smoke check compares this value with DEPLOY_URL.
+ORG_URL            = "https://acredia-stellar-tau.vercel.app/"
 ORG_LOGO           = "https://acredia-stellar-tau.vercel.app/Acredia.png"
 ORG_DESCRIPTION    = "Decentralized platform for issuing, storing, and verifying academic credentials on the Stellar blockchain. Eliminates credential fraud with tamper-proof, blockchain-anchored records verifiable in seconds — for free, with no account required."
 ORG_GITHUB         = "https://github.com/blessingsokeke618-sys/CertChain-Blockchain-Academic-Credential-Verification-System"
