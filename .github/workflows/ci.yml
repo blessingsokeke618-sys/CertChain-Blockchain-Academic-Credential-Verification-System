@@ -260,6 +260,43 @@ jobs:
       - name: Cache Cargo Dependencies
         uses: actions/cache@v6
         with:
-  
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
 
-/* … truncated 1096 chars — edit only what you need near the top … */
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Build WASM
+        run: cargo build --release --target wasm32v1-none
+
+      - name: Run contract tests
+        run: cargo test
+
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+
+      - name: Record WASM SHA-256 digest
+        id: wasm_digest
+        run: |
+          set -euo pipefail
+          WASM=target/wasm32v1-none/release/acredia_stellar.wasm
+          test -f "$WASM"
+          DIGEST=$(sha256sum "$WASM" | cut -d' ' -f1)
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "$DIGEST" > wasm.sha256
+          echo "WASM SHA-256: $DIGEST"
+
+      - name: Upload WASM artifact and digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: certchain-wasm-${{ github.sha }}
+          path: |
+            contracts/target/wasm32v1-none/release/acredia_stellar.wasm
+            contracts/wasm.sha256
+          if-no-files-found: error
+          retention-days: 90
+
