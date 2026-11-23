@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { performance } from 'node:perf_hooks';
 import { resetRateLimitStore } from '@/lib/rateLimit';
+import loadBaselines from './load-baselines.json';
 
 const {
     mockIssueCredentialOnStellar,
@@ -84,6 +85,27 @@ vi.mock('../src/lib/supabase', () => ({
 import { GET as verifyGET } from '../src/app/api/verify/[token]/route';
 import { POST as postFile } from '../src/app/api/ipfs/file/route';
 import { POST as postJson } from '../src/app/api/ipfs/json/route';
+
+// #124: the committed baseline is authoritative for on-demand load runs.
+// A generous multiplier absorbs runner noise while still catching real
+// regressions; failure messages name the baseline and capture date.
+const LABEL_TO_BASELINE: Record<string, 'verify' | 'ipfsFile' | 'ipfsJson'> = {
+    verify: 'verify',
+    'ipfs-file': 'ipfsFile',
+    'ipfs-json': 'ipfsJson',
+};
+const BASELINE_TOLERANCE = Number(process.env.LOAD_BASELINE_TOLERANCE ?? 2);
+
+function assertWithinBaseline(label: string, p95: number) {
+    const key = LABEL_TO_BASELINE[label];
+    expect(key, `no load baseline registered for ${label}`).toBeDefined();
+    const baseline = loadBaselines[key];
+    const limit = baseline.p95 * BASELINE_TOLERANCE;
+    expect(
+        p95,
+        `${label} p95 ${p95}ms exceeded baseline ${baseline.p95}ms x ${BASELINE_TOLERANCE} (captured ${loadBaselines.capturedAt})`,
+    ).toBeLessThanOrEqual(limit);
+}
 
 function percentile(values: number[], quantile: number): number {
     const sorted = [...values].sort((left, right) => left - right);
@@ -221,7 +243,7 @@ describe('endpoint load baselines', () => {
             expect(response.status, await response.text()).toBe(200);
         });
 
-        expect(summary.p95).toBeLessThanOrEqual(LOAD_P95_BUDGET_MS);
+        assertWithinBaseline('verify', summary.p95);
     });
 
     it('records an IPFS file upload baseline', async () => {
@@ -235,7 +257,7 @@ describe('endpoint load baselines', () => {
             expect(response.status, await response.text()).toBe(200);
         });
 
-        expect(summary.p95).toBeLessThanOrEqual(LOAD_P95_BUDGET_MS);
+        assertWithinBaseline('ipfs-file', summary.p95);
     });
 
     it('records an IPFS json upload baseline', async () => {
@@ -249,6 +271,6 @@ describe('endpoint load baselines', () => {
             expect(response.status, await response.text()).toBe(200);
         });
 
-        expect(summary.p95).toBeLessThanOrEqual(LOAD_P95_BUDGET_MS);
+        assertWithinBaseline('ipfs-json', summary.p95);
     });
 });
