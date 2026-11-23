@@ -260,6 +260,34 @@ jobs:
       - name: Cache Cargo Dependencies
         uses: actions/cache@v6
         with:
-  
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
 
-/* … truncated 1096 chars — edit only what you need near the top … */
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Build WASM
+        run: cargo build --release --target wasm32v1-none
+
+      - name: Run contract tests
+        run: cargo test
+
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+
+      - name: Verify checked-in TypeScript bindings are current
+        run: |
+          set -euo pipefail
+          BINDING=../frontend/src/contracts/certchain.ts
+          cp "$BINDING" /tmp/certchain.ts.expected
+          make bindings
+          if ! diff -u /tmp/certchain.ts.expected "$BINDING"; then
+            echo "::error::Generated TypeScript bindings differ from the checked-in file."
+            echo "Run 'make bindings' in contracts/ and commit frontend/src/contracts/certchain.ts."
+            exit 1
+          fi
+          echo "✅ TypeScript bindings match the compiled WASM."
