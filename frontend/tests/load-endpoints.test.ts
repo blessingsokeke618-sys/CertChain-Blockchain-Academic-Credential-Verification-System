@@ -166,6 +166,11 @@ function createJsonRequest(index = 0) {
     });
 }
 
+// #123: generous, environment-adjusted budget. Shared/virtualised runners
+// have noisy clocks; these are smoke guards, not production SLOs. Override
+// with LOAD_P95_BUDGET_MS when running on a known-slow machine.
+const LOAD_P95_BUDGET_MS = Number(process.env.LOAD_P95_BUDGET_MS ?? 250);
+
 describe('endpoint load baselines', () => {
     beforeEach(() => {
         vi.clearAllMocks();
