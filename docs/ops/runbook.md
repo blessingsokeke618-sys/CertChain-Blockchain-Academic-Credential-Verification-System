@@ -80,9 +80,20 @@ On-call procedures and incident response for CertChain operators.
 
 ## Regular Maintenance
 
+### Indexer lag monitoring
+
+`frontend/scripts/indexer.ts` emits a structured `indexer_lag_seconds` metric on
+every poll, including the last indexed ledger, the network head and the lag in
+ledgers and seconds. When the lag exceeds 24 hours it logs a single
+`[ALERT] INDEXER LAG ALERT: last indexed ledger …` line (and a recovery line
+once it clears). Configure the log alerting rule on that string, and include
+the check in the weekly review below alongside the pin-keeper and TTL-keeper
+checks.
+
 ### Weekly
 - [ ] Check pin keeper logs — ensure secondary pins are healthy
 - [ ] Check TTL keeper logs — ensure no credentials are approaching expiry
+- [ ] Check indexer lag metric — look for `indexer_lag_seconds` log lines and any `[ALERT] INDEXER LAG ALERT` entry; investigate the last indexed ledger reported by the alert
 - [ ] Review Vercel function error rate in dashboard
 
 ### Monthly
