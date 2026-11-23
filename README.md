@@ -599,6 +599,11 @@ npm run dev
 Then fill `frontend\.env.local`, run the Supabase SQL scripts listed below, and open [http://localhost:3000](http://localhost:3000).
 
 > **TL;DR**: Install prerequisites, clone the repo, run `npm ci` in `frontend`, copy `frontend/.env.local.example`, run the two Supabase SQL scripts, and start `npm run dev`. Deploy the contract only if you changed contract code or need a fresh contract ID.
+>
+> **Fully offline contract development:** run `docker compose up -d` for a
+> standalone Stellar network and follow
+> [docs/local-stellar-network.md](docs/local-stellar-network.md) with the
+> `frontend/.env.local.local.example` profile — no testnet faucet needed.
 
 ### Prerequisites
 
