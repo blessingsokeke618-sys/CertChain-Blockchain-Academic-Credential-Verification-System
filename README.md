@@ -696,6 +696,11 @@ STELLAR_CONTRACT_ID=
 
 ### Database Setup
 
+> **Local development without a hosted project:** see
+> [docs/local-supabase.md](docs/local-supabase.md) for `npx supabase start`,
+> applying migrations/seed data, local auth behaviour and the `.env.local`
+> endpoints. The steps below describe a hosted Supabase project.
+
 5. **Set Up Supabase Database**
 
 Run the canonical SQL setup in your Supabase SQL Editor. Paste and run the
