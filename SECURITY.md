@@ -1,5 +1,18 @@
 # Security Advisories
 
+## Static analysis coverage
+
+CodeQL runs on every push and pull request to `main` (and weekly) for both
+`javascript-typescript` and `rust`, using the `security-extended` and
+`security-and-quality` query suites. The Rust job builds the Soroban contract
+for `wasm32v1-none` before analysis because `contracts/src/lib.rs` is the
+highest-value attack surface and needs compiled code for a useful database.
+Soroban/WASM is therefore **included**, not excluded: the contract sources are
+analysed as Rust, while the generated WASM itself is not separately scanned —
+its behaviour derives from those sources and the pinned `soroban-sdk`, which is
+covered by the dependency audit below. Results are uploaded to the repository's
+Security tab for both languages.
+
 ## Reporting a Vulnerability
 
 **Please do not open a public GitHub issue for security vulnerabilities.**

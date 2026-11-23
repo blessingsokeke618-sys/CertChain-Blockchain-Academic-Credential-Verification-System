@@ -19,8 +19,12 @@ concurrency:
 
 jobs:
   analyze:
-    name: Analyze TypeScript and JavaScript
+    name: Analyze ${{ matrix.language }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, rust]
 
     steps:
       - name: Checkout Repository
@@ -29,8 +33,16 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
-          languages: javascript-typescript
+          languages: ${{ matrix.language }}
           queries: security-extended,security-and-quality
+
+      - name: Build Rust contract for analysis
+        if: matrix.language == 'rust'
+        working-directory: ./contracts
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup target add wasm32v1-none
+          cargo build --release --target wasm32v1-none
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
