@@ -260,6 +260,31 @@ jobs:
       - name: Cache Cargo Dependencies
         uses: actions/cache@v6
         with:
-  
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
 
-/* … truncated 1096 chars — edit only what you need near the top … */
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Build WASM
+        run: cargo build --release --target wasm32v1-none
+
+      - name: Run contract tests
+        run: cargo test
+
+      - name: Fail on committed test-snapshot drift
+        run: |
+          set -euo pipefail
+          if ! git diff --exit-code -- contracts/test_snapshots; then
+            echo "::error::Committed test snapshots changed during cargo test."
+            echo "Review contracts/test_snapshots and commit intentional updates, or fix the behaviour that changed them."
+            exit 1
+          fi
+
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+
