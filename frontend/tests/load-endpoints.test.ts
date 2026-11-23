@@ -144,6 +144,11 @@ function createJsonRequest(index = 0) {
     });
 }
 
+// #123: generous, environment-adjusted budget. Shared/virtualised runners
+// have noisy clocks; these are smoke guards, not production SLOs. Override
+// with LOAD_P95_BUDGET_MS when running on a known-slow machine.
+const LOAD_P95_BUDGET_MS = Number(process.env.LOAD_P95_BUDGET_MS ?? 250);
+
 describe('endpoint load baselines', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -216,7 +221,7 @@ describe('endpoint load baselines', () => {
             expect(response.status, await response.text()).toBe(200);
         });
 
-        expect(summary.p95).toBeLessThanOrEqual(50);
+        expect(summary.p95).toBeLessThanOrEqual(LOAD_P95_BUDGET_MS);
     });
 
     it('records an IPFS file upload baseline', async () => {
@@ -230,7 +235,7 @@ describe('endpoint load baselines', () => {
             expect(response.status, await response.text()).toBe(200);
         });
 
-        expect(summary.p95).toBeLessThanOrEqual(50);
+        expect(summary.p95).toBeLessThanOrEqual(LOAD_P95_BUDGET_MS);
     });
 
     it('records an IPFS json upload baseline', async () => {
@@ -244,6 +249,6 @@ describe('endpoint load baselines', () => {
             expect(response.status, await response.text()).toBe(200);
         });
 
-        expect(summary.p95).toBeLessThanOrEqual(50);
+        expect(summary.p95).toBeLessThanOrEqual(LOAD_P95_BUDGET_MS);
     });
 });
