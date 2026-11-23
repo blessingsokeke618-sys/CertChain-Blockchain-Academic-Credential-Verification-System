@@ -81,6 +81,23 @@ These links expire after 24 hours and are single-use.
 
 ---
 
+## Credential notifications (issued / revoked)
+
+Both issuance and revocation enqueue a `send_email` job through
+`POST /api/notifications/trigger`. The route re-checks the caller's institution
+membership and write permission, rate-limits per IP and per account, loads the
+credential by token id, and queues a payload containing only the student's
+email, name, institution name and public verification link. No Stellar secret,
+service-role key or academic detail (GPA, marks) is included.
+
+`frontend/scripts/emailWorker.ts` claims jobs via the `next_job` RPC. Failed
+sends stay in the queue with `attempts` incremented for the next poll, so a
+temporary SMTP outage is retried rather than dropping the notice. Before
+sending, the worker reads `profiles.notification_preferences`: a recipient who
+opted out of `email_issued` or `email_revoked` is treated as successfully
+processed without a send. The public unsubscribe route writes the same
+preferences, so both paths share one opt-out store.
+
 ## Email Templates
 
 All email templates live in `frontend/src/lib/emailTemplates.ts`. They are plain TypeScript
