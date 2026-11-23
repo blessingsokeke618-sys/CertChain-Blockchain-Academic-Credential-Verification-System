@@ -599,6 +599,11 @@ npm run dev
 Then fill `frontend\.env.local`, run the Supabase SQL scripts listed below, and open [http://localhost:3000](http://localhost:3000).
 
 > **TL;DR**: Install prerequisites, clone the repo, run `npm ci` in `frontend`, copy `frontend/.env.local.example`, run the two Supabase SQL scripts, and start `npm run dev`. Deploy the contract only if you changed contract code or need a fresh contract ID.
+>
+> **Fully offline contract development:** run `docker compose up -d` for a
+> standalone Stellar network and follow
+> [docs/local-stellar-network.md](docs/local-stellar-network.md) with the
+> `frontend/.env.local.local.example` profile — no testnet faucet needed.
 
 ### Prerequisites
 
@@ -695,6 +700,11 @@ STELLAR_CONTRACT_ID=
 > **Production warning**: Keep `SUPABASE_SERVICE_ROLE_KEY`, `PINATA_JWT`, `VERIFICATION_LOG_HASH_SECRET`, and all Stellar secret keys server-only. Never put server secrets in `NEXT_PUBLIC_*` variables, browser code, screenshots, logs, or GitHub issues.
 
 ### Database Setup
+
+> **Local development without a hosted project:** see
+> [docs/local-supabase.md](docs/local-supabase.md) for `npx supabase start`,
+> applying migrations/seed data, local auth behaviour and the `.env.local`
+> endpoints. The steps below describe a hosted Supabase project.
 
 5. **Set Up Supabase Database**
 

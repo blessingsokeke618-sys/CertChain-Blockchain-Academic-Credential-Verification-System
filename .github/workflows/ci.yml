@@ -279,24 +279,15 @@ jobs:
       - name: Clippy
         run: cargo clippy -- -D warnings
 
-      - name: Record WASM SHA-256 digest
-        id: wasm_digest
+      - name: Verify checked-in TypeScript bindings are current
         run: |
           set -euo pipefail
-          WASM=target/wasm32v1-none/release/acredia_stellar.wasm
-          test -f "$WASM"
-          DIGEST=$(sha256sum "$WASM" | cut -d' ' -f1)
-          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
-          echo "$DIGEST" > wasm.sha256
-          echo "WASM SHA-256: $DIGEST"
-
-      - name: Upload WASM artifact and digest
-        uses: actions/upload-artifact@v7
-        with:
-          name: certchain-wasm-${{ github.sha }}
-          path: |
-            contracts/target/wasm32v1-none/release/acredia_stellar.wasm
-            contracts/wasm.sha256
-          if-no-files-found: error
-          retention-days: 90
-
+          BINDING=../frontend/src/contracts/certchain.ts
+          cp "$BINDING" /tmp/certchain.ts.expected
+          make bindings
+          if ! diff -u /tmp/certchain.ts.expected "$BINDING"; then
+            echo "::error::Generated TypeScript bindings differ from the checked-in file."
+            echo "Run 'make bindings' in contracts/ and commit frontend/src/contracts/certchain.ts."
+            exit 1
+          fi
+          echo "✅ TypeScript bindings match the compiled WASM."
