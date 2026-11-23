@@ -185,5 +185,18 @@ Issuer and student identities are expressed as `did:stellar:<address>`, e.g.:
 did:stellar:GAMI3XDDII72W23RADNPPAZ2GYEZ2MTYXLETOU36R4ISXMQ7IURFEKFP
 ```
 
-This is a lightweight convention — there is no registered `did:stellar` DID method resolver
-today. A full DID:stellar resolver registration is on the roadmap (Phase 3).
+Each identifier is resolvable over HTTP: a consumer fetches
+`https://acredia-stellar-tau.vercel.app/api/did/<address>` and receives a DID
+document containing the Ed25519 key decoded from the G-address as an
+`Ed25519VerificationKey2020` verification method, plus `authentication`,
+`assertionMethod` and a `LinkedDomains` service endpoint. The resolution
+algorithm is:
+
+1. Parse `did:stellar:<address>` and validate `<address>` as a StrKey Ed25519 public key.
+2. Decode it to 32 raw bytes and encode those bytes as base58btc with a `z` multibase prefix.
+3. Return the DID document above (`200`), or `400` for a malformed address.
+
+This is a per-address resolver rather than a W3C-registered DID method, so
+consumers must be configured with the resolver URL. It removes the previous
+interop caveat for OBv3 tools that accept externally supplied DID documents;
+generic `did:stellar` resolution outside Acredia remains a roadmap item.
