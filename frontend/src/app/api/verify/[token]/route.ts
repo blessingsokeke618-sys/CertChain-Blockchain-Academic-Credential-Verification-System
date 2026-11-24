@@ -37,6 +37,30 @@ export const dynamic = 'force-dynamic';
 
 const MAX_TOKEN_LENGTH = 128;
 
+// Issue #87 — allow the embeddable widget (and any partner integration) to call
+// this endpoint from a third-party origin. The response is already a public
+// verification payload (no secrets, no cookies), so an open CORS policy is the
+// correct posture; a wildcard means the browser will neither send cookies nor
+// expose this response to a credentialed request, which is what we want.
+const CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'content-type, x-api-key, authorization',
+    'Access-Control-Max-Age': '86400',
+    'Vary': 'Origin',
+} as const;
+
+export async function OPTIONS() {
+    return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+}
+
+function withCors(response: NextResponse): NextResponse {
+    for (const [key, value] of Object.entries(CORS_HEADERS)) {
+        response.headers.set(key, value);
+    }
+    return response;
+}
+
 const VERIFY_RATE_LIMIT = {
     windowSeconds: 60,
     maxRequests: 60,
@@ -189,10 +213,10 @@ export async function GET(
         token = rawToken?.trim() || null;
 
         if (!token) {
-            return NextResponse.json(
+            return withCors(NextResponse.json(
                 { success: false, error: 'Token is required' },
                 { status: 400 },
-            );
+            ));
         }
 
         try {
@@ -202,10 +226,10 @@ export async function GET(
         }
 
         if (!supabase) {
-            return NextResponse.json(
+            return withCors(NextResponse.json(
                 { success: false, error: 'Server configuration error' },
                 { status: 500 },
-            );
+            ));
         }
 
         const authHeader = request.headers.get('authorization');
@@ -224,17 +248,17 @@ export async function GET(
                 .maybeSingle();
 
             if (keyError) {
-                return NextResponse.json(
+                return withCors(NextResponse.json(
                     { success: false, error: 'Database error validating API key' },
                     { status: 500 }
-                );
+                ));
             }
 
             if (!keyData || keyData.revoked) {
-                return NextResponse.json(
+                return withCors(NextResponse.json(
                     { success: false, error: 'Invalid or revoked API key' },
                     { status: 401 }
-                );
+                ));
             }
             
             apiKeyContext = { id: keyData.id, name: keyData.name };
@@ -250,10 +274,10 @@ export async function GET(
                 errorCategory: 'rate_limiter_unconfigured',
                 apiKeyContext,
             });
-            return NextResponse.json(
+            return withCors(NextResponse.json(
                 { success: false, error: 'Server configuration error' },
                 { status: 500 },
-            );
+            ));
         }
 
         const rateLimitResponse = await enforceRateLimit(
@@ -264,7 +288,9 @@ export async function GET(
         );
 
         if (rateLimitResponse) {
-            return rateLimitResponse;
+            // Issue #87 — rate-limit responses are returned to third-party
+            // origins by the embeddable widget, so they must carry CORS too.
+            return withCors(rateLimitResponse as NextResponse);
         }
 
         if (token.length > MAX_TOKEN_LENGTH) {
@@ -272,10 +298,10 @@ export async function GET(
                 errorCategory: 'token_too_long',
             });
 
-            return NextResponse.json(
+            return withCors(NextResponse.json(
                 { success: false, error: 'Invalid token' },
                 { status: 400 },
-            );
+            ));
         }
 
         const { data, error } = await supabase
@@ -309,10 +335,10 @@ export async function GET(
                 apiKeyContext,
             });
 
-            return NextResponse.json(
+            return withCors(NextResponse.json(
                 { success: false, error: 'Failed to query credential' },
                 { status: 500 },
-            );
+            ));
         }
 
         const tokenId = token;
@@ -341,10 +367,10 @@ export async function GET(
         if (!data && !onChain) {
             await logVerificationAttempt(supabase, request, token, 'not_found', 404, { apiKeyContext });
 
-            return NextResponse.json(
+            return withCors(NextResponse.json(
                 { success: false, error: 'Credential not found' },
                 { status: 404 },
-            );
+            ));
         }
 
         // Issue #232: Synthesize credential record if database row is absent / pruned / erased.
@@ -493,7 +519,7 @@ export async function GET(
         // refresh it in the background, preventing latency spikes on expiry.
         const cacheControl = `public, s-maxage=${RESPONSE_CACHE_MAX_AGE_SECONDS}, stale-while-revalidate=30`;
 
-        return NextResponse.json(
+        return withCors(NextResponse.json(
             {
                 success: true,
                 credential: {
@@ -535,7 +561,7 @@ export async function GET(
             {
                 headers: { 'Cache-Control': cacheControl },
             },
-        );
+        ));
     } catch (err: unknown) {
         if (err instanceof ContractConfigurationError) {
             captureException(err, { requestId, context: 'GET /api/verify/[token]' });
@@ -545,10 +571,10 @@ export async function GET(
                 apiKeyContext,
             });
 
-            return NextResponse.json(
+            return withCors(NextResponse.json(
                 { success: false, error: 'Server configuration error' },
                 { status: 500 },
-            );
+            ));
         }
 
         if (err instanceof BlockchainUnavailableError) {
@@ -559,10 +585,10 @@ export async function GET(
                 apiKeyContext,
             });
 
-            return NextResponse.json(
+            return withCors(NextResponse.json(
                 { success: false, error: 'Blockchain verification unavailable' },
                 { status: 503 },
-            );
+            ));
         }
 
         await logVerificationAttempt(supabase, request, token, 'server_error', 500, {
@@ -572,9 +598,9 @@ export async function GET(
         });
         captureException(err, { requestId, context: 'GET /api/verify/[token]' });
 
-        return NextResponse.json(
+        return withCors(NextResponse.json(
             { success: false, error: 'Internal server error' },
             { status: 500 },
-        );
+        ));
     }
 }

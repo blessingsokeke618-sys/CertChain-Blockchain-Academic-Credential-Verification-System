@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Acredia widget — cross-origin demo</title>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 720px; color: #111827; }
+        h1 { margin-top: 0; }
+        code, pre { background: #f3f4f6; border-radius: 4px; padding: 2px 4px; }
+        pre { padding: 12px; overflow: auto; }
+        .row { margin: 1.5rem 0; }
+        label { display: block; font-weight: 600; margin-bottom: 4px; }
+        input { width: 100%; padding: 8px; font: inherit; box-sizing: border-box; }
+        button { padding: 8px 14px; font: inherit; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Acredia verification widget</h1>
+    <p>
+        This page is a self-contained demo of the embeddable widget. In production
+        it is intended to be hosted on a partner origin (e.g. a university portal);
+        here it lives on the Acredia origin so the demo is always in sync with the
+        shipped <code>widget.js</code>.
+    </p>
+
+    <div class="row">
+        <label for="token">Credential token</label>
+        <input id="token" placeholder="paste a token — then press Load" />
+        <p><button id="load" type="button">Load widget</button></p>
+    </div>
+
+    <h2>Live widget</h2>
+    <div id="acredia-verify-widget" data-token=""></div>
+
+    <h2>Embed snippet</h2>
+    <pre id="snippet"></pre>
+
+    <h2>Content Security Policy</h2>
+    <pre>script-src  'self' https://acredia-stellar.vercel.app
+connect-src 'self' https://acredia-stellar.vercel.app
+style-src   'self' 'unsafe-inline'</pre>
+
+    <script src="/widget.js" defer></script>
+    <script>
+        function updateSnippet(token) {
+            var origin = window.location.origin;
+            document.getElementById('snippet').textContent =
+                '<div id="acredia-verify-widget" data-token="' + token + '"\n' +
+                '     data-api="' + origin + '"></div>\n' +
+                '<script src="' + origin + '/widget.js" defer><\/script>';
+        }
+
+        document.getElementById('load').addEventListener('click', function () {
+            var token = document.getElementById('token').value.trim();
+            var container = document.getElementById('acredia-verify-widget');
+            container.setAttribute('data-token', token);
+            container.removeAttribute('data-acredia-initialized');
+            container.innerHTML = '';
+            updateSnippet(token);
+            if (window.AcrediaVerify) window.AcrediaVerify.mount(container);
+        });
+
+        updateSnippet('YOUR_CREDENTIAL_TOKEN');
+    </script>
+</body>
+</html>
