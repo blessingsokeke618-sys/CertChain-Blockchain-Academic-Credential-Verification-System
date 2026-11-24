@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { extractTokenFromQrPayload } from '@/lib/verification';
 import { debugWarn } from '@/lib/debug';
+import { classifyConnectivity, verificationFailureMessage } from '@/lib/offlineVerification';
 
 export interface CredentialData {
     token_id: string;
@@ -162,9 +163,17 @@ export function useCredentialVerification(tokenId: string | null) {
                 onChainFound: Boolean(verification?.onChainFound),
             });
         } catch (err: unknown) {
-            setError((err instanceof Error ? err.message : String(err)) || 'Failed to verify credential');
-            setVerificationStatus('invalid');
-            setIntegrityStatus(null);
+            // #91: distinguish offline / low-bandwidth failures from a genuine
+            // invalid credential. A failed fetch says nothing about validity.
+            const connection = typeof navigator === 'undefined'
+                ? 'online'
+                : classifyConnectivity(
+                    navigator.onLine,
+                    (navigator as Navigator & { connection?: { effectiveType?: string } }).connection?.effectiveType,
+                );
+            setError(verificationFailureMessage(err, connection));
+            setVerificationStatus(null);
+            setIntegrityStatus(connection === 'online' ? null : 'unavailable');
             setVerificationDetail(null);
         } finally {
             setLoading(false);
