@@ -26,6 +26,25 @@ procedure.
 
 ---
 
+## SEP-0001 discovery document
+
+`frontend/public/stellar.toml` is served at `/.well-known/stellar.toml` through a Next.js
+rewrite (Next.js does not serve dot-directories from `public/`). Before announcing a domain —
+and after every deployment that changes it — verify the live document:
+
+```bash
+cd frontend
+DEPLOY_URL=https://acredia-stellar-tau.vercel.app npm run check:stellar-toml
+```
+
+The smoke check fails on a 404, a missing/invalid `VERSION`, `SIGNING_KEY`, principal or contract
+section, or an `ORG_URL` that does not match `DEPLOY_URL`. Then run the public validator at
+<https://stellar.expert/validator> against `https://acredia-stellar-tau.vercel.app/` and confirm
+it reports success. `ORG_URL` must stay identical to the domain that serves the file; update it
+and re-run both checks if the deployment URL changes.
+
+---
+
 ## Blockers in Detail
 
 ### 1. Independent Smart-Contract Audit

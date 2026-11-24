@@ -9,6 +9,19 @@ const nextConfig: NextConfig = {
         return buildSecurityHeaders(process.env.NODE_ENV === 'production');
     },
 
+    // ── Rewrites ────────────────────────────────────────────────────────────
+    async rewrites() {
+        return [
+            {
+                // Next.js does not serve dot-directories from public/, so the
+                // canonical file lives at /stellar.toml and is exposed at the
+                // SEP-0001 well-known path (#96).
+                source: '/.well-known/stellar.toml',
+                destination: '/stellar.toml',
+            },
+        ];
+    },
+
     // ── Redirects ───────────────────────────────────────────────────────────
     async redirects() {
         return [
