@@ -4,23 +4,23 @@ This document describes the testing strategy and structural patterns utilized fo
 
 ---
 
-## 🏗️ Core Design Pattern
+## ??? Core Design Pattern
 
 Academic credential operations rely heavily on decentralized components (Stellar Soroban smart contracts, IPFS storage networks) and modern database APIs (Supabase). To ensure stable, local, and CI-compatible testing without hitting live blockchain node environments or third-party networks, we implement **fully mocked integration / E2E tests**.
 
 ```
-┌────────────────────────────────────────────────────────┐
-│               tests/e2e.lifecycle.test.ts              │
-└───────────────────────────┬────────────────────────────┘
-                            ▼ Mocks (using Vitest)
- ┌─────────────────┬─────────────────┬─────────────────┐
- │   IPFS Service  │  Stellar Network│  Supabase Client│
- └─────────────────┴─────────────────┴─────────────────┘
+??????????????????????????????????????????????????????????
+?               tests/e2e.lifecycle.test.ts              ?
+??????????????????????????????????????????????????????????
+                            ? Mocks (using Vitest)
+ ???????????????????????????????????????????????????????
+ ?   IPFS Service  ?  Stellar Network?  Supabase Client?
+ ???????????????????????????????????????????????????????
 ```
 
 ---
 
-## ⏱️ What the "load" numbers measure
+## ?? What the "load" numbers measure
 
 [`load-endpoints.test.ts`](./load-endpoints.test.ts) is an **in-process unit-level
 regression guard**, not a production performance benchmark. It mocks IPFS
@@ -49,7 +49,7 @@ Supabase/RPC stack and is out of scope here.
 
 ---
 
-## 🧪 Verified Testing Scenarios
+## ?? Verified Testing Scenarios
 
 Located in [e2e.lifecycle.test.ts](./e2e.lifecycle.test.ts):
 
@@ -83,15 +83,15 @@ Located in [e2e.lifecycle.test.ts](./e2e.lifecycle.test.ts):
 
 ---
 
-## 🛡️ Base-URL Identity Guard
+## ??? Base-URL Identity Guard
 
 **If a browser run fails before any test starts, with "Refusing to run the Playwright
-suite against …", this is the section you want.**
+suite against .", this is the section you want.**
 
 ### What it does
 
 [global-setup.ts](./playwright/global-setup.ts) runs once, before any spec, and fetches
-the configured base URL. It continues only if the response carries the Acredia marker —
+the configured base URL. It continues only if the response carries the Acredia marker -
 a `<meta name="x-acredia-app" content="acredia-stellar">` tag emitted from the root
 layout, so it is present on every route. Anything else aborts the run with an explicit
 message naming the URL and how to fix it.
@@ -106,7 +106,7 @@ server and reported four failures citing elements (`/objects/people`,
 
 The false failures were the visible harm; the false *passes* were the real one. Another
 app that happens to be accessible on the audited paths would report green while
-Acredia's own regressions shipped unexercised — and nothing in the output would say the
+Acredia's own regressions shipped unexercised - and nothing in the output would say the
 audit had been pointed somewhere else.
 
 ### The three layers
@@ -128,14 +128,14 @@ PLAYWRIGHT_PORT=3200 npx playwright test
 ### Changing the marker
 
 The name and value live in [src/lib/appIdentity.ts](../src/lib/appIdentity.ts) and are
-compared as strings. Changing one side alone breaks every browser run — the layout and
+compared as strings. Changing one side alone breaks every browser run - the layout and
 the guard must move together. [playwrightIdentityGuard.test.ts](./playwrightIdentityGuard.test.ts)
 covers both, including a deliberate run against a non-Acredia responder that asserts the
 setup fails rather than proceeding.
 
 ---
 
-## 👛 Wallet testing
+## ?? Wallet testing
 
 Acredia supports ten wallets through Stellar Wallets Kit
 (ACREDIA-STELLAR#272). The automated suites cover the adapter's logic; the
@@ -145,15 +145,15 @@ per-wallet matrix below cannot be automated and has to be walked by a human.
 
 | Suite | Covers |
 | --- | --- |
-| [contractsInvoke.test.ts](./contractsInvoke.test.ts) | The full build → simulate → sign → submit → confirm sequence in `invokeContractMethod`, driven by a **keypair signer with no browser**. Verifies the submitted transaction really is signed by that keypair, not just that submit was called. Previously impossible (ACREDIA-STELLAR#3). |
+| [contractsInvoke.test.ts](./contractsInvoke.test.ts) | The full build ? simulate ? sign ? submit ? confirm sequence in `invokeContractMethod`, driven by a **keypair signer with no browser**. Verifies the submitted transaction really is signed by that keypair, not just that submit was called. Previously impossible (ACREDIA-STELLAR#3). |
 | [stellarSigner.test.ts](./stellarSigner.test.ts) | The signer implementations: signatures verify against the public key, follow the passphrase they are told, and round-trip through the real server-side verifier. |
 | [e2eLedger.test.ts](./e2eLedger.test.ts) | The single E2E seam that replaced six inline `getE2eState()` forks, plus assertions that `contracts.ts` imports no wallet SDK and never calls `getE2eState`. |
-| [walletPlatform.test.ts](./walletPlatform.test.ts) | Mobile device detection (including iPadOS's desktop UA) and which wallets a phone can actually reach — the judgements the mobile fix rests on (ACREDIA-STELLAR#4). |
+| [walletPlatform.test.ts](./walletPlatform.test.ts) | Mobile device detection (including iPadOS's desktop UA) and which wallets a phone can actually reach - the judgements the mobile fix rests on (ACREDIA-STELLAR#4). |
 | [walletAdapter.test.ts](./walletAdapter.test.ts) | Connect / restore / disconnect, capability gating, response normalisation, network selection, single-init under concurrency. Kit fully mocked. |
 | [walletBoundary.test.ts](./walletBoundary.test.ts) | That no file outside `src/lib/wallet/` imports a wallet library, and that no copy presents Freighter as a requirement. Walks the source tree. |
 | [walletModalA11y.test.ts](./walletModalA11y.test.ts) | That the modal's icon buttons are identified and labelled. Pins the kit's real SVG path data, so a kit upgrade that redraws an icon fails here. |
 | [studentProvisioning.test.ts](./studentProvisioning.test.ts) | Signature normalisation across base64 / `Uint8Array` / hex, including a hex round-trip through verification. |
-| [playwright/](./playwright/) | The full issue → verify → revoke cycle, with the wallet stubbed via E2E state. |
+| [playwright/](./playwright/) | The full issue ? verify ? revoke cycle, with the wallet stubbed via E2E state. |
 
 ### What is **not** covered automatically
 
@@ -177,16 +177,16 @@ PR that adds or upgrades a wallet.
 
 | Wallet | Connect | Authorize issuer | Issue | Batch issue | Revoke | Claim (`/claim`) |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: |
-| Freighter | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ |
-| xBull | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ |
-| Lobstr | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ |
-| Hana | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ |
-| Klever | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ |
-| OneKey | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ |
-| Bitget | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ |
-| HOT Wallet | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ |
-| Albedo | ☐ | ☐ | ☐ | ☐ | ☐ | **n/a** — no message signing |
-| Rabet | ☐ | ☐ | ☐ | ☐ | ☐ | **n/a** — no message signing |
+| Freighter | ? | ? | ? | ? | ? | ? |
+| xBull | ? | ? | ? | ? | ? | ? |
+| Lobstr | ? | ? | ? | ? | ? | ? |
+| Hana | ? | ? | ? | ? | ? | ? |
+| Klever | ? | ? | ? | ? | ? | ? |
+| OneKey | ? | ? | ? | ? | ? | ? |
+| Bitget | ? | ? | ? | ? | ? | ? |
+| HOT Wallet | ? | ? | ? | ? | ? | ? |
+| Albedo | ? | ? | ? | ? | ? | **n/a** - no message signing |
+| Rabet | ? | ? | ? | ? | ? | **n/a** - no message signing |
 
 For Albedo and Rabet, the `/claim` check is inverted: confirm the page **refuses
 early** with a named explanation, rather than letting the form be filled and
@@ -196,22 +196,48 @@ failing at signing.
 
 Verified in this environment, with evidence:
 
-- ☑ The kit loads in a real browser and reports all ten wallets with
-  availability resolved (`xBull — available`, `Freighter — not installed`, …).
-- ☑ The modal opens, is keyboard-reachable, closes on `Escape`, and scores
-  **0 axe violations across all rules** (down from 1 critical).
-- ☑ Full Playwright suite (12 specs, issue → verify → revoke) green.
-- ☑ Adapter, boundary, a11y and normalisation suites green.
+- ? The kit loads in a real browser and reports all ten wallets with
+  availability resolved (`xBull - available`, `Freighter - not installed`, .).
+- ? The modal opens, is keyboard-reachable, has a labelled close button, and
+  scores **0 axe violations across all rules** (down from 1 critical).
+- ? Full Playwright suite (12 specs, issue ? verify ? revoke) green.
+- ? Adapter, boundary, a11y and normalisation suites green.
 
-**Not verified — needs a human with the extensions installed:** every cell in
+**Not verified - needs a human with the extensions installed:** every cell in
 the matrix above. No browser wallet extension was installed in the migration
 environment, so no real signature was ever produced. The adapter's handling of
 each wallet's response is reasoned from the kit's module sources, not observed.
 
+### Scope of the WCAG 2.1 AA claim
+
+The README's accessibility statement is intentionally scoped to what has actually
+been audited. Automated axe audits in [a11y.spec.ts](./playwright/a11y.spec.ts)
+target WCAG 2.1 Level AA (the `wcag2a` and `wcag2aa` rule tags) on:
+
+- Public pages: `/`, `/about`, `/auth/login`, `/contact`.
+- Institution console: `/dashboard`, `/dashboard/issue`, `/dashboard/issued`.
+- Public verification: `/verify?token=1`, `/credentials/1`.
+- Admin console: `/admin`, including the wallet-connection gate.
+- Wallet-selection modal: keyboard-reachable controls, labelled icon buttons,
+  and 0 axe violations at 360px and 320px in emulated Chromium.
+
+This is a scoped claim, not a statement that every surface or third-party flow
+is WCAG 2.1 AA conformant. Real wallet extensions and physical mobile devices
+remain unverified (see above). The known keyboard exception is that `Escape`
+does not close the third-party Stellar Wallets Kit modal; the labelled close
+button works, and axe does not flag the modal. The exception is tracked in the
+next section and must be rechecked whenever the kit is upgraded.
+
+Re-audit cadence: the automated route audit runs in CI on every PR. A full
+manual re-audit, including the per-wallet matrix and a manual keyboard pass, is
+due quarterly and before major UI, verification-flow, or wallet-kit changes.
+Findings and any revised scope must be reflected in both this document and the
+README design philosophy section.
+
 ### Known upstream issue: Escape does not close the modal
 
 Pressing `Escape` leaves the kit's modal on screen. Confirmed to be the kit's own
-behaviour, not ours — it reproduces with Acredia's a11y attributes stripped off
+behaviour, not ours - it reproduces with Acredia's a11y attributes stripped off
 the dialog before the key press, and the kit's `components/app.js` registers no
 `keydown` handler. The close button works.
 
@@ -220,7 +246,7 @@ internal close path, and axe does not treat it as a WCAG failure. Worth an
 upstream issue against
 [Stellar-Wallets-Kit](https://github.com/Creit-Tech/Stellar-Wallets-Kit). If it
 becomes ours to fix, the close button is reachable at
-`button[aria-label="Close wallet selection"]` — the label Acredia adds in
+`button[aria-label="Close wallet selection"]` - the label Acredia adds in
 `src/lib/wallet/modalA11y.ts`.
 
 ### Mobile (ACREDIA-STELLAR#4)
@@ -231,10 +257,10 @@ Android), against the real kit modal:
 | Check | Result |
 | --- | --- |
 | Wallets *reporting* available on mobile | xBull, Albedo, HOT Wallet |
-| Wallets that **actually** work | Albedo only — the other two report `true` unconditionally |
+| Wallets that **actually** work | Albedo only - the other two report `true` unconditionally |
 | Modal at 360px | 352px wide, no horizontal page scroll, 0 axe violations |
 | Modal at 320px | 320px wide, no overflow, 0 axe violations |
-| Header tap targets | 34px before the fix → **44px** after (WCAG 2.5.5) |
+| Header tap targets | 34px before the fix ? **44px** after (WCAG 2.5.5) |
 | `/claim` on mobile | Shows the options notice; no "install extension" copy; offers a desktop route |
 
 Two traps worth knowing if you touch this:
@@ -266,6 +292,6 @@ and the wallet app's own `stellar_signMessage` support cannot be emulated.
 ### Adding a wallet
 
 See [Adding a wallet](../../docs/architecture.md#adding-a-wallet) in the
-architecture doc — in particular step 3: check the kit's module source for
+architecture doc - in particular step 3: check the kit's module source for
 `signMessage` before assuming it works, because every module *declares* it and
 two of them throw.

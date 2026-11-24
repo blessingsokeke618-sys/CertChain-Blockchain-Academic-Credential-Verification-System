@@ -1182,11 +1182,13 @@ Future metadata fields can be added to stored `metadata` or IPFS display metadat
 Acredia follows modern web design principles:
 
 - **Responsive**: Works on desktop, tablet, and mobile
-- **Accessible**: WCAG 2.1 compliant components
+- **Accessible**: WCAG 2.1 Level AA verified on the surfaces listed in [the accessibility scope](frontend/tests/TEST_STRATEGY.md#scope-of-the-wcag-21-aa-claim)
 - **Consistent**: Unified design system with Tailwind CSS
 - **Intuitive**: Clear user flows and interactions
 - **Professional**: Gradient accents and modern aesthetics
 - **Fast**: Optimized with Next.js App Router
+
+**Accessibility claim scope.** Automated axe audits target WCAG 2.1 Level AA (A and AA rules) on the public pages (`/`, `/about`, `/auth/login`, `/contact`), the institution console (`/dashboard`, `/dashboard/issue`, `/dashboard/issued`), public verification (`/verify?token=1`, `/credentials/1`), the admin console including its wallet gate (`/admin`), and the wallet-selection modal at 360px and 320px. Known exception: `Escape` does not close the third-party Stellar Wallets Kit modal; the labelled close button works and axe reports no violations for the modal. Real wallet extensions and physical mobile devices are outside this claim. The automated audit runs in CI on every PR; a full manual re-audit is due quarterly and before major UI, verification-flow, or wallet-kit changes. Details: [TEST_STRATEGY.md](frontend/tests/TEST_STRATEGY.md#scope-of-the-wcag-21-aa-claim).
 
 ---
 
