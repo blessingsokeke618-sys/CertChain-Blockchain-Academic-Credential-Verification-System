@@ -20,7 +20,7 @@ procedure.
 | Independent smart-contract audit | ❌ Not started | Required before mainnet |
 | Contract owner key custody (multisig / HSM) | ❌ Not decided | Single key is unacceptable for production |
 | Credential TTL keeper (funded + monitored) | ⚠️ Partial | Keeper exists; funding and alerting not in place |
-| Distributed rate limiting provisioned | ⚠️ Not provisioned | Upstash Redis config exists; not deployed |
+| Distributed rate limiting provisioned | ⚠️ Pending deployment | Upstash Redis instance to be created; env vars to be set in production; verify via `/api/admin/rate-limit-health` |
 | CRON_SECRET set in production environment | ⚠️ Partial | Route exists; secret not configured on host |
 | Custom SMTP configured | ⚠️ Partial | Guide exists; not wired up for production volume |
 
@@ -107,8 +107,11 @@ across multiple instances.
 **What exists:** `frontend/src/lib/rateLimit.ts` is wired to Upstash Redis with graceful
 fallback to in-memory.
 
-**What's needed:** Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in the Vercel
-production environment. This is a configuration step, not a code change.
+**What's needed:**
+- Create the Upstash Redis instance and record it in the ops inventory
+- Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in the Vercel production environment. This is a configuration step, not a code change.
+- Verify the limiter is using Redis: `GET /api/admin/rate-limit-health` should report the Redis backend in production
+- Verify cross-instance throttling: a burst of verification requests must be throttled across instances, not per-instance
 
 ---
 
