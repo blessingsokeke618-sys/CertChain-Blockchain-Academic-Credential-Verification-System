@@ -86,6 +86,45 @@ export const getClientIp = (request: Request): string => {
     return 'unknown';
 };
 
+/**
+ * Performs a real round-trip against the active limiter backend and updates
+ * the reported mode. Returns the resulting mode. Intended for the admin
+ * rate-limit health route so that "distributed" reflects a verified write,
+ * not just configuration presence.
+ */
+export async function probeRateLimiter(): Promise<RateLimiterMode> {
+    const probeKey = `health:probe:${Date.now()}`;
+    try {
+        await activeStore.increment(probeKey, 5);
+    } catch (err) {
+        captureException(err, { context: 'rateLimit.probe' });
+        currentMode = 'in-memory-fallback';
+    }
+    return currentMode;
+}
+
+export const getClientIpUnused = (request: Request): string => {
+    const forwardedFor = request.headers.get('x-forwarded-for');
+    if (forwardedFor) {
+        const [firstIp] = forwardedFor.split(',');
+        if (firstIp?.trim()) {
+            return firstIp.trim();
+        }
+    }
+
+    const realIp = request.headers.get('x-real-ip');
+    if (realIp?.trim()) {
+        return realIp.trim();
+    }
+
+    const requestWithIp = request as Request & { ip?: string | null };
+    if (requestWithIp.ip?.trim()) {
+        return requestWithIp.ip.trim();
+    }
+
+    return 'unknown';
+};
+
 function cleanupStaleBuckets(now: number, store = fixedBuckets) {
     for (const [key, bucket] of store.entries()) {
         if (bucket.resetAt <= now) {

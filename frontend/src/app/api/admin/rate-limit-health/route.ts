@@ -36,6 +36,10 @@ export async function GET(request: NextRequest) {
 
     const status = healthy ? 200 : (isMainnet ? 503 : 200);
 
+    const redisConfigured = Boolean(
+        process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN,
+    );
+
     return NextResponse.json(
         {
             success: true,
@@ -59,8 +63,15 @@ export async function GET(request: NextRequest) {
                  * On mainnet, any non-distributed mode is a security gap.
                  * On testnet/dev, in-memory is acceptable.
                  */
-                actionRequired: isMainnet && !healthy,
                 network: process.env.NEXT_PUBLIC_STELLAR_NETWORK ?? 'unknown',
+                /**
+                 * Backend check: true when Upstash Redis env vars are present.
+                 * Lets the health check confirm the distributed backend is
+                 * provisioned in production.
+                 */
+                backend: mode === 'distributed' ? 'upstash-redis' : 'in-memory',
+                redisConfigured,
+                actionRequired: isMainnet && (!healthy || !redisConfigured),
             },
         },
         { status },
