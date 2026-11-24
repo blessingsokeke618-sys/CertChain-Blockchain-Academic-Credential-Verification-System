@@ -87,13 +87,16 @@ TTL is set to ~1 year on issuance. If no one bumps it, the credential entry arch
 and is no longer immediately readable (it can be restored, but that requires a restore operation).
 
 **What exists:** `worker/pinKeeper.ts` runs the IPFS side. A `bump_credential` entry point
-exists on the contract and is callable by anyone.
+exists on the contract and is callable by anyone. The scheduled bump job is
+`GET /api/cron/ttl-keeper` (Vercel Cron, daily 02:00 UTC): it enumerates credential
+token IDs approaching their TTL threshold and submits `bump_credential`, recording each
+transaction hash in the run summary — see `docs/ops/ttl-keeper.md`.
 
 **What's needed:**
-- A funded Stellar account dedicated to TTL bumping
-- A scheduled process (cron job or Vercel Cron) calling `bump_credential` for all token IDs
-  approaching their threshold
-- Alerting if the bumper account's balance drops below a safe threshold
+- A funded Stellar account dedicated to TTL bumping (`TTL_KEEPER_ACCOUNT_SECRET` /
+  `TTL_KEEPER_ACCOUNT_PUBLIC`)
+- Alerting if the bumper account's balance drops below a safe threshold (the run sets
+  `lowBalance`/`alert`; wire an alerting rule on it)
 
 ---
 

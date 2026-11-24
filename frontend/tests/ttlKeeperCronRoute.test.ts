@@ -75,8 +75,13 @@ vi.mock('@stellar/stellar-sdk', () => ({
   Keypair: { fromSecret: mocks.fromSecret },
   nativeToScVal: mocks.nativeToScVal,
   xdr: {
-    ScVal: { scvLedgerKeyContractData: vi.fn(() => ({})) },
-    ContractDataDurability: { persistent: () => 'persistent' },
+    LedgerKey: {
+      contractData: vi.fn((contractData: unknown) => ({ contractData })),
+    },
+    LedgerKeyContractData: class {
+      constructor(public input: unknown) {}
+    },
+    ContractDataDurability: { persistent: { name: 'persistent', value: 1 } },
   },
 }));
 
@@ -187,6 +192,49 @@ describe('TTL keeper cron route', () => {
       BigInt(1001),
       BigInt(1002),
     ]);
+
+    // Each successful bump records its transaction hash in the summary and
+    // in the structured run log.
+    expect(body.summary.bumpedTransactions).toEqual([
+      { tokenId: '1001', txHash: 'tx-hash' },
+      { tokenId: '1002', txHash: 'tx-hash' },
+    ]);
+    expect(mocks.structuredLog).toHaveBeenCalledWith(
+      'INFO',
+      'TTL keeper run complete',
+      expect.any(String),
+      expect.objectContaining({
+        bumpedTransactions: [
+          { tokenId: '1001', txHash: 'tx-hash' },
+          { tokenId: '1002', txHash: 'tx-hash' },
+        ],
+      }),
+    );
+  });
+
+  it('is a no-op for credentials whose TTL is already above the threshold', async () => {
+    installSupabase([{ token_id: 1001, revoked: false }]);
+    // Remaining TTL (~46 days of ledgers) is far above the ~6-month
+    // PERSISTENT_THRESHOLD, so a second run after a successful bump skips
+    // the on-chain call entirely.
+    mocks.getLedgerEntries.mockResolvedValue({
+      entries: [{ liveUntilLedgerSeq: 4_000_000 }],
+      latestLedger: 1000,
+    });
+
+    const { GET } = await import('@/app/api/cron/ttl-keeper/route');
+    const res = await GET(makeRequest({ authorization: 'Bearer test-secret' }));
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.summary).toMatchObject({
+      totalCredentials: 1,
+      bumpAttempted: 0,
+      bumpSucceeded: 0,
+      bumpSkipped: 1,
+      bumpedTransactions: [],
+    });
+    expect(mocks.contractCall).not.toHaveBeenCalled();
   });
 
   it('returns the auth failure from the cron guard', async () => {

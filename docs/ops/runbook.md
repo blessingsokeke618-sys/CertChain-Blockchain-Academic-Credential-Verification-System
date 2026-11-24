@@ -92,7 +92,7 @@ checks.
 
 ### Weekly
 - [ ] Check pin keeper logs — ensure secondary pins are healthy
-- [ ] Check TTL keeper logs — ensure no credentials are approaching expiry
+- [ ] Check TTL keeper logs — ensure no credentials are approaching expiry (see `docs/ops/ttl-keeper.md`)
 - [ ] Check indexer lag metric — look for `indexer_lag_seconds` log lines and any `[ALERT] INDEXER LAG ALERT` entry; investigate the last indexed ledger reported by the alert
 - [ ] Review Vercel function error rate in dashboard
 
