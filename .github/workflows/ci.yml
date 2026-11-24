@@ -291,3 +291,136 @@ jobs:
             exit 1
           fi
           echo "âœ… TypeScript bindings match the compiled WASM."
+
+  smoke-test:
+    name: Mainnet Readiness Smoke Test (testnet staging)
+    # Runs the documented smoke test (issue → verify → revoke one credential)
+    # against an ephemeral testnet deployment on every push to the release branches.
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./contracts
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Rust Toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+          rustup default stable
+          rustup target add wasm32v1-none
+
+      - name: Install Stellar CLI
+        run: |
+          # soroban-sdk v29 requires stellar-cli >= v25.2.0.
+          STELLAR_VERSION="30.0.1"
+          curl -sL "https://github.com/stellar/stellar-cli/releases/download/v${STELLAR_VERSION}/stellar-cli-${STELLAR_VERSION}-x86_64-unknown-linux-gnu.tar.gz" \
+            | tar -xz -C /usr/local/bin stellar
+          stellar --version
+
+      - name: Cache Cargo Dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Build optimized WASM
+        run: |
+          cargo build --release --target wasm32v1-none
+          stellar contract optimize --wasm target/wasm32v1-none/release/acredia_stellar.wasm --optimize=false
+
+      - name: Generate and fund ephemeral testnet deployer
+        id: deployer
+        run: |
+          set -euo pipefail
+          stellar keys generate smoke-deployer --network testnet
+          DEPLOYER_ADDR=$(stellar keys address smoke-deployer --network testnet)
+          echo "deployer_address=$DEPLOYER_ADDR" >> "$GITHUB_OUTPUT"
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://friendbot.stellar.org?addr=${DEPLOYER_ADDR}")
+          if [ "$HTTP_CODE" != "200" ]; then echo "❌ Failed to fund deployer via friendbot (HTTP $HTTP_CODE)"; exit 1; fi
+          echo "✅ Deployer funded: $DEPLOYER_ADDR"
+
+      - name: Deploy contract to testnet
+        id: deploy
+        run: |
+          set -euo pipefail
+          OUTPUT=$(stellar contract deploy \
+            --wasm target/wasm32v1-none/release/acredia_stellar.wasm \
+            --network testnet \
+            --source smoke-deployer \
+            --optimize=false)
+          echo "$OUTPUT"
+          CONTRACT_ID=$(echo "$OUTPUT" | grep -oE 'Contract Id: [A-Z0-9]{56}' | awk '{print $NF}')
+          if [ -z "$CONTRACT_ID" ]; then echo "❌ Could not parse deployed contract ID"; exit 1; fi
+          echo "contract_id=$CONTRACT_ID" >> "$GITHUB_OUTPUT"
+          echo "✅ Deployed contract: $CONTRACT_ID"
+
+      - name: Initialize contract (deployer as owner)
+        run: |
+          set -euo pipefail
+          OWNER=$(stellar keys address smoke-deployer --network testnet)
+          stellar contract invoke \
+            --id ${{ steps.deploy.outputs.contract_id }} \
+            --network testnet \
+            --source smoke-deployer \
+            -- initialize \
+            --owner "$OWNER"
+          echo "✅ Contract initialized. Owner: $OWNER"
+
+      - name: Generate and fund ephemeral testnet issuer
+        id: issuer
+        run: |
+          set -euo pipefail
+          stellar keys generate smoke-issuer --network testnet
+          ISSUER_ADDR=$(stellar keys address smoke-issuer --network testnet)
+          ISSUER_SECRET=$(stellar keys secret smoke-issuer)
+          echo "issuer_address=$ISSUER_ADDR" >> "$GITHUB_OUTPUT"
+          echo "issuer_secret=$ISSUER_SECRET" >> "$GITHUB_OUTPUT"
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://friendbot.stellar.org?addr=${ISSUER_ADDR}")
+          if [ "$HTTP_CODE" != "200" ]; then echo "❌ Failed to fund issuer via friendbot (HTTP $HTTP_CODE)"; exit 1; fi
+          echo "✅ Issuer funded: $ISSUER_ADDR"
+
+      - name: Authorize issuer on contract
+        run: |
+          set -euo pipefail
+          stellar contract invoke \
+            --id ${{ steps.deploy.outputs.contract_id }} \
+            --network testnet \
+            --source smoke-deployer \
+            -- authorize_issuer \
+            --issuer ${{ steps.issuer.outputs.issuer_address }}
+          echo "✅ Issuer authorized: ${{ steps.issuer.outputs.issuer_address }}"
+
+      - name: Generate smoke-test credential hash
+        id: hash
+        run: |
+          set -euo pipefail
+          HASH=$(printf 'certchain-smoke-test-%s' "$(date +%s)" | sha256sum | awk '{print $1}')
+          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
+          echo "✅ Credential hash: $HASH"
+
+      - name: Run smoke test against testnet staging
+        working-directory: ./frontend
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npx tsx scripts/smoke-test.ts \
+            --network testnet \
+            --contract-id "${{ steps.deploy.outputs.contract_id }}" \
+            --issuer-secret-key "${{ steps.issuer.outputs.issuer_secret }}" \
+            --student-address "${{ steps.issuer.outputs.issuer_address }}" \
+            --credential-hash "${{ steps.hash.outputs.hash }}"
+          echo "✅ Smoke test passed"
+
+      - name: Upload smoke test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: smoke-test-results
+          path: frontend/smoke-test-results-testnet.json
+          if-no-files-found: warn
