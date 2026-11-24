@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Check, Copy, Download, Share2 } from 'lucide-react';
 import { debugLog, debugWarn, captureException } from '@/lib/debug';
+import { buildVerificationDeepLink } from '@/lib/wallet/sep0007';
 
 interface QRCodeModalProps {
     open: boolean;
@@ -49,7 +50,13 @@ export default function QRCodeModal({ open, onClose, credential }: QRCodeModalPr
             }
 
             const canvas = canvasRef.current;
-            const qrUrl = `${window.location.origin}/verify?token=${credential.token_id}`;
+            // #90: encode a SEP-0007 `web+stellar:` URI rather than a bare URL
+            // so Stellar wallets can open the verification page directly.
+            const qrUrl = buildVerificationDeepLink(
+                credential.token_id,
+                window.location.origin,
+                credential.metadata?.credentialData?.institutionName,
+            );
             const ctx = canvas.getContext('2d');
 
             if (ctx) {
@@ -134,7 +141,9 @@ export default function QRCodeModal({ open, onClose, credential }: QRCodeModalPr
                 <DialogHeader className="space-y-1">
                     <DialogTitle className="text-xl font-semibold">Share Credential</DialogTitle>
                     <DialogDescription className="text-sm">
-                        Anyone can scan this QR code to verify your credential
+                        Anyone can scan this QR code to verify your credential. The QR encodes a
+                        SEP-0007 Stellar URI, so compatible wallets open the verification page
+                        directly.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -154,6 +163,10 @@ export default function QRCodeModal({ open, onClose, credential }: QRCodeModalPr
                             }}
                         />
                     </div>
+
+                    <p className="text-xs text-muted-foreground">
+                        Wallet URI: <code className="break-all">web+stellar:web?...</code>
+                    </p>
 
                     <div className="flex flex-col gap-1 rounded-md bg-secondary/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                         <span className="text-xs text-muted-foreground">Token ID:</span>
