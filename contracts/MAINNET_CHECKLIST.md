@@ -50,7 +50,13 @@ contract governance.
 - [ ] `migrate()` now emits a `migrated` event (SECURITY_AUDIT.md F-3) — same monitoring
       expectation.
 - [ ] Rollback plan exists: if a bad upgrade ships, is there a known-good WASM hash on hand to
-      upgrade back to?
+      upgrade back to? Use the SHA-256 digest published with the passing CI run for the
+      commit being deployed (`certchain-wasm-<commit sha>` workflow artifact, `wasm.sha256`).
+      Record that digest here before upgrading so the exact tested build is traceable:
+
+      | Deployed commit | WASM SHA-256 (from CI artifact) |
+      |---|---|
+      | `<git sha>` | `<sha256 from wasm.sha256>` |
 
 ## 4. TTL / archival-keeper strategy
 

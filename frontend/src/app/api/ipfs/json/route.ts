@@ -22,6 +22,16 @@ const IPFS_JSON_USER_QUOTA = {
     prefix: 'ipfs-json-user',
 } as const;
 
+// Per-institution quota (#89): multiple users in the same institution share
+// the project's Pinata budget, so a per-user limit alone can be bypassed by
+// rotating institution accounts. Falls back to the user id when membership
+// resolution is unavailable (see requireInstitutionRequest).
+const IPFS_JSON_INSTITUTION_QUOTA = {
+    windowSeconds: 60,
+    maxRequests: 30,
+    prefix: 'ipfs-json-institution',
+} as const;
+
 export async function POST(request: NextRequest) {
     const requestId = request.headers.get('x-request-id') || 'unknown';
     try {
@@ -44,6 +54,14 @@ export async function POST(request: NextRequest) {
         });
         if (userRateLimitResponse) {
             return userRateLimitResponse;
+        }
+
+        const institutionRateLimitResponse = await enforceRateLimit(request, {
+            ...IPFS_JSON_INSTITUTION_QUOTA,
+            identifier: authCheck.institutionId ?? authCheck.userId,
+        });
+        if (institutionRateLimitResponse) {
+            return institutionRateLimitResponse;
         }
 
         const payload = await request.json();

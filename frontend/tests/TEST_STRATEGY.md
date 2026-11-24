@@ -20,6 +20,35 @@ Academic credential operations rely heavily on decentralized components (Stellar
 
 ---
 
+## ⏱️ What the "load" numbers measure
+
+[`load-endpoints.test.ts`](./load-endpoints.test.ts) is an **in-process unit-level
+regression guard**, not a production performance benchmark. It mocks IPFS
+(`mockPinFileToPinata` / `mockPinJsonToPinata`), Stellar
+(`mockIssueCredentialOnStellar`), Supabase (`mockGetServiceRoleClient`) and
+authentication (`mockRequireInstitutionRequest`, `mockRequireAdminRequest`)
+before invoking Next.js route handlers directly and timing them with
+`performance.now()`.
+
+Consequently the recorded `p50`/`p95` values in
+[`load-baselines.json`](./load-baselines.json) measure handler logic plus mock
+overhead on the CI runner. They are useful for catching a handler that became
+an order of magnitude slower, but they **do not** measure:
+
+- Stellar RPC round trips or transaction finality
+- Supabase/Postgres query time, RLS evaluation or network latency
+- IPFS pinning or gateway retrieval
+- Real browser/network conditions, CDN behaviour or cold starts
+
+Production latency is dominated by those external dependencies. Do not quote
+these numbers as production latency, service-level objectives or evidence of
+end-user speed. The file is excluded from the default Vitest run because
+wall-clock assertions are noisy on shared runners; run it on demand with
+`npm run test:load`. A true production-latency harness would require a local
+Supabase/RPC stack and is out of scope here.
+
+---
+
 ## 🧪 Verified Testing Scenarios
 
 Located in [e2e.lifecycle.test.ts](./e2e.lifecycle.test.ts):
