@@ -80,9 +80,20 @@ On-call procedures and incident response for CertChain operators.
 
 ## Regular Maintenance
 
+### Indexer lag monitoring
+
+`frontend/scripts/indexer.ts` emits a structured `indexer_lag_seconds` metric on
+every poll, including the last indexed ledger, the network head and the lag in
+ledgers and seconds. When the lag exceeds 24 hours it logs a single
+`[ALERT] INDEXER LAG ALERT: last indexed ledger …` line (and a recovery line
+once it clears). Configure the log alerting rule on that string, and include
+the check in the weekly review below alongside the pin-keeper and TTL-keeper
+checks.
+
 ### Weekly
 - [ ] Check pin keeper logs — ensure secondary pins are healthy
 - [ ] Check TTL keeper logs — ensure no credentials are approaching expiry
+- [ ] Check indexer lag metric — look for `indexer_lag_seconds` log lines and any `[ALERT] INDEXER LAG ALERT` entry; investigate the last indexed ledger reported by the alert
 - [ ] Review Vercel function error rate in dashboard
 
 ### Monthly
@@ -94,7 +105,17 @@ On-call procedures and incident response for CertChain operators.
 - [ ] Run `cd frontend && npm test` — all tests green
 - [ ] Run `cd contracts && cargo test` — all tests green
 - [ ] Deploy to testnet staging environment first
-- [ ] Smoke test: issue one credential, verify it, revoke it
+- [ ] Smoke test: issue one credential, verify it, revoke it via the script:
+    ```bash
+    cd frontend && npx tsx scripts/smoke-test.ts \
+      --network testnet \
+      --contract-id <TESTNET_CONTRACT_ID> \
+      --issuer-secret-key <ISSUER_SECRET_KEY> \
+      --student-address <STUDENT_ADDRESS> \
+      --credential-hash <SHA256_HEX>
+    ```
+    The script exits non-zero on any failed step and records transaction hashes to
+    `smoke-test-results-testnet.json` (see `frontend/scripts/smoke-test.ts`).
 
 ---
 

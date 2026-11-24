@@ -25,7 +25,8 @@
     "email-worker": "tsx --env-file=.env.local scripts/emailWorker.ts",
     "worker:pin-keeper": "tsx --env-file=.env.local worker/pinKeeper.ts",
     "db:schema": "bash scripts/build-schema.sh",
-    "check:stellar-toml": "node scripts/check-stellar-toml.mjs"
+    "openapi:generate": "node scripts/check-openapi.mjs --generate",
+    "openapi:check": "node scripts/check-openapi.mjs"
   },
   "dependencies": {
     "@creit.tech/stellar-wallets-kit": "^2.8.0",

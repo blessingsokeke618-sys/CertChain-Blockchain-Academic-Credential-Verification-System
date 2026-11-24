@@ -136,7 +136,23 @@ When all 4 blockers above are resolved:
 
 4. Provision the first institution's wallet on mainnet via the admin dashboard.
 
-5. Run a smoke test: issue one credential, verify it, revoke it.
+5. Run the smoke test against mainnet: issue one credential, verify it, revoke it.
+   The script is network-parameterized, exits non-zero on any failed step, and
+   records transaction hashes to a results file for pass/fail evidence:
+
+   ```bash
+   cd frontend
+   npx tsx scripts/smoke-test.ts \
+     --network mainnet \
+     --contract-id <MAINNET_CONTRACT_ID> \
+     --issuer-secret-key <ISSUER_SECRET_KEY> \
+     --student-address <STUDENT_ADDRESS> \
+     --credential-hash <SHA256_HEX>
+   ```
+
+   The same script runs in CI against testnet staging (see `.github/workflows/ci.yml`,
+   `smoke-test` job). Re-running it immediately after mainnet cutover provides the
+   recorded pass/fail evidence the manual exercise previously lacked.
 
 6. Monitor the Stellar Expert explorer for the first 24 hours.
 

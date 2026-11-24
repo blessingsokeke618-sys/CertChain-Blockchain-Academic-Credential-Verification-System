@@ -68,6 +68,22 @@ npm run db:schema
 supabase db push
 ```
 
+## Test snapshots
+
+`contracts/test_snapshots/` holds committed snapshots captured by the Rust
+tests. CI runs `git diff --exit-code -- contracts/test_snapshots` after
+`cargo test`, so any local run that rewrites those files will fail the pull
+request until resolved.
+
+- If a snapshot changed because you intentionally changed event/state output,
+  review the diff carefully, include the updated files in the same commit, and
+  explain the behaviour change in the PR description.
+- If the change is unexpected, treat it as a regression: fix the contract or
+  test rather than committing the new snapshot.
+- Proptest runs deliberately disable snapshot capture; do not use them to
+  refresh baselines. Regenerate snapshots only with the deterministic unit
+  tests that own them.
+
 ## Production Safety
 
 - Keep `SUPABASE_SERVICE_ROLE_KEY`, `PINATA_JWT`, and Stellar secret keys server-only.

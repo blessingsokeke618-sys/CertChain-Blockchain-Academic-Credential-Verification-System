@@ -3,6 +3,7 @@ loadEnv({ quiet: true }); // Load .env if running directly
 import { rpc, scValToNative } from '@stellar/stellar-sdk';
 import { createClient } from '@supabase/supabase-js';
 import { getConfiguredContractId } from '../src/lib/runtimeConfig';
+import { evaluateIndexerLag, formatLagMetric } from './indexerHealth';
 
 const RPC_URL = process.env.NEXT_PUBLIC_SOROBAN_RPC_URL;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -183,6 +184,9 @@ async function run() {
         console.log(`Cursor reset: will replay from ledger ${RESET_FROM_LEDGER}`);
     }
 
+    // Alert only on a threshold crossing; the metric itself is logged every poll.
+    let lagAlertActive = false;
+
     while (true) {
         try {
             // Get latest network ledger
@@ -203,6 +207,22 @@ async function run() {
                 // Initialize if not present, starting from current ledger
                 await supabase.from('indexer_state').insert({ id: 'main', last_ledger: networkLatestLedger });
                 stateData = { last_ledger: networkLatestLedger };
+            }
+
+            // #80: emit a health metric every poll and alert when the newest
+            // indexed ledger is more than 24 hours behind the network head.
+            const lag = evaluateIndexerLag({
+                lastIndexedLedger: stateData.last_ledger,
+                latestLedger: networkLatestLedger,
+                latestLedgerClosedAt: latestLedgerResponse.ledgerClosedAt,
+            });
+            console.log(formatLagMetric(lag));
+            if (lag.alert && !lagAlertActive) {
+                console.error(`[ALERT] ${lag.message}`);
+                lagAlertActive = true;
+            } else if (!lag.alert && lagAlertActive) {
+                console.log(`Indexer lag recovered: ${lag.message}`);
+                lagAlertActive = false;
             }
 
             let startLedger = stateData.last_ledger + 1;

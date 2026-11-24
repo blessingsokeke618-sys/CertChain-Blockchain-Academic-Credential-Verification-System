@@ -19,18 +19,30 @@ concurrency:
 
 jobs:
   analyze:
-    name: Analyze TypeScript and JavaScript
+    name: Analyze ${{ matrix.language }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, rust]
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
         with:
-          languages: javascript-typescript
+          languages: ${{ matrix.language }}
           queries: security-extended,security-and-quality
 
+      - name: Build Rust contract for analysis
+        if: matrix.language == 'rust'
+        working-directory: ./contracts
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup target add wasm32v1-none
+          cargo build --release --target wasm32v1-none
+
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4

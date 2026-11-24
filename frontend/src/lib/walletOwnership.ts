@@ -41,6 +41,22 @@ export function buildClaimMessage(walletAddress: string, nonce: string): string 
  * verification, never a thrown error, so a caller cannot distinguish "invalid
  * signature" from "malformed request" by watching for exceptions.
  */
+/**
+ * SEP-0010-style login challenge (#94). Distinct from the claim message so a
+ * signature captured for one flow cannot be replayed in the other.
+ */
+export function buildWalletLoginMessage(walletAddress: string, nonce: string): string {
+    return [
+        'Acredia — sign in with Stellar wallet',
+        '',
+        'Signing this message authenticates you to an existing Acredia account.',
+        'It grants no issuing role and authorises no payment or transfer.',
+        '',
+        `Wallet: ${walletAddress}`,
+        `Challenge: ${nonce}`,
+    ].join('\n');
+}
+
 export function verifyWalletSignature(
     walletAddress: string,
     message: string,
