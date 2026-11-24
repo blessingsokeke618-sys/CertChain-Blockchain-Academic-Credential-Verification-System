@@ -326,6 +326,18 @@ export async function revokeCredentialById(
         if (error) throw error;
 
         debugLog('Credential revocation saved to the database.');
+
+        // #93: mirror the issuance path and queue the revocation notice. The
+        // trigger route re-checks institution ownership, rate limits the call
+        // and builds the verification link; the worker handles preferences
+        // (unsubscribe) and retry through the jobs queue.
+        if (credential.token_id) {
+            fetch('/api/notifications/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'revoked', tokenId: credential.token_id }),
+            }).catch((err) => captureException(err, { context: 'triggerRevokedEmail' }));
+        }
     } catch (error) {
         captureException(error, { context: 'revokeCredentialById_service' });
         throw error;
