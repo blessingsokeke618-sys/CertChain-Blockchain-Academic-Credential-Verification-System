@@ -1349,7 +1349,7 @@ Deeper documentation lives under [`docs/`](docs/):
 - **[Multi-user institution decision (ADR 0003)](docs/decisions/0003-multiple-institution-users.md)** — architectural decision record on multiple users per institution for business continuity.
 - **[Contract reference](contracts/README.md)** — the Soroban `AcrediaCredential` contract, storage/TTL model, and deployment.
 - **[Roadmap & backlog](ISSUE_DRAFTS.md)** — the production & market issue backlog.
-- **API reference** — _planned (see the "public verification API" item in the backlog)._
+- **[API reference](frontend/docs/openapi.json)** — OpenAPI 3.0 spec for every route under `frontend/src/app/api`; regenerate with `npm run openapi:generate` and verify with `npm run openapi:check`.
 
 ## 🤝 Contributing
 

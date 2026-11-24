@@ -56,6 +56,9 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
+      - name: Check OpenAPI reference covers every route
+        run: npm run openapi:check
+
       - name: Run Vitest Unit Tests with Coverage
         run: npm run test -- --coverage
 
