@@ -199,8 +199,16 @@ export default function QRCodeModal({ open, onClose, credential }: QRCodeModalPr
                             className="h-9 flex-1 text-sm"
                         >
                             <Download className="mr-1.5 h-3.5 w-3.5" />
-                            Download
+                            Download QR
                         </Button>
+                        <a
+                            href={`/api/credentials/${encodeURIComponent(credential?.token_id || '')}/pdf`}
+                            download
+                            className="inline-flex h-9 flex-1 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent"
+                        >
+                            <Download className="mr-1.5 h-3.5 w-3.5" />
+                            PDF certificate
+                        </a>
                         <Button
                             onClick={handleShare}
                             size="sm"
