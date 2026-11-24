@@ -2359,8 +2359,12 @@ CREATE TABLE IF NOT EXISTS public.wallet_claim_nonces (
     expires_at     TIMESTAMP WITH TIME ZONE NOT NULL,
     consumed_at    TIMESTAMP WITH TIME ZONE,
     ip_hash        TEXT,
+    purpose        TEXT NOT NULL DEFAULT 'claim'::text,
     created_at     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
+
+COMMENT ON COLUMN public.wallet_claim_nonces.purpose IS
+    'Flow that issued the challenge: claim or login. Verifiers must filter on it.';
 
 COMMENT ON TABLE public.wallet_claim_nonces IS
     'Single-use, short-lived challenges for the wallet-ownership claim flow (Issue #243). Bound to one wallet address; consumed on first successful verification.';

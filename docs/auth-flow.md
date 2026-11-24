@@ -73,6 +73,26 @@ POC opens institution settings → "Invite team member"
 Both paths produce a Supabase Auth account with `role = 'institution'`. The member's
 access is scoped to their institution's data via RLS policies on `institution_members`.
 
+### Wallet sign-in (SEP-0010-style, #94)
+
+Institutions and students who already have a provisioned account can sign in
+with the Stellar wallet attached to it. Email/password remains the recovery
+path; connecting a wallet never creates an account or grants a role on its own.
+
+1. `POST /api/auth/wallet/challenge` with `{ walletAddress }` returns a
+   single-use 5-minute nonce and the exact message to sign. The nonce is stored
+   with `purpose = 'login'` so it cannot be replayed in the claim flow.
+2. The wallet signs the message. `POST /api/auth/wallet/verify` with
+   `{ walletAddress, nonce, signature }` verifies the signature, consumes the
+   nonce atomically, and looks up a `students` row whose `wallet_address`
+   matches and which already has an `auth_user_id`.
+3. Only then does the server generate a Supabase magic-link session for that
+   provisioned email. Unknown addresses, expired or consumed challenges,
+   tampered messages and invalid signatures are all rejected.
+
+Both endpoints are rate-limited per IP. The session link is returned over HTTPS
+and is itself single-use.
+
 ### Role Hierarchy within an Institution
 
 | Sub-role | Set in | Permissions |
