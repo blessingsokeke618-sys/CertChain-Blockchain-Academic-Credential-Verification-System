@@ -185,6 +185,36 @@ describe('module registration by device', () => {
     });
 });
 
+describe('Stellar network selection', () => {
+    it.each([
+        'Public Global Stellar Network ; September 2015',
+        TESTNET_PASSPHRASE,
+        'Test SDF Future Network ; October 2022',
+        'Local Sandbox Stellar Network ; September 2022',
+        'Standalone Network ; February 2017',
+    ])('passes the configured supported passphrase to the kit: %s', async (passphrase) => {
+        vi.resetModules();
+        installMocks(passphrase);
+
+        const { stellarKitAdapter } = await import('../src/lib/wallet/adapter');
+        await stellarKitAdapter.connect();
+
+        expect(kitMock.init.mock.calls[0]?.[0]).toMatchObject({ network: passphrase });
+    });
+
+    it('rejects an unknown passphrase instead of loading the kit on testnet', async () => {
+        vi.resetModules();
+        installMocks('Custom Stellar Ledger Passphrase', { walletConnectProjectId: 'wc-project-id' });
+
+        const { stellarKitAdapter } = await import('../src/lib/wallet/adapter');
+
+        await expect(stellarKitAdapter.connect()).rejects.toThrow(
+            /Unsupported Stellar network passphrase "Custom Stellar Ledger Passphrase".*active network configuration/,
+        );
+        expect(kitMock.init).not.toHaveBeenCalled();
+    });
+});
+
 describe('WalletConnect registration', () => {
     it('is absent when no project id is configured', async () => {
         // Deployment configuration, not an error: its absence must leave a
@@ -238,6 +268,20 @@ describe('WalletConnect registration', () => {
         };
         const wc = init.modules.find((m) => m.productId === 'wallet_connect');
         expect(wc?.params?.allowedChains).toEqual(['stellar:pubnet']);
+    });
+
+    it.each([
+        'Test SDF Future Network ; October 2022',
+        'Local Sandbox Stellar Network ; September 2022',
+        'Standalone Network ; February 2017',
+    ])('does not register for an unsupported WalletConnect network: %s', async (passphrase) => {
+        vi.resetModules();
+        installMocks(passphrase, { walletConnectProjectId: 'wc-project-id' });
+
+        const { stellarKitAdapter } = await import('../src/lib/wallet/adapter');
+        await stellarKitAdapter.connect();
+
+        expect(registeredModuleIds()).not.toContain('wallet_connect');
     });
 
     it('carries the real app identity into the wallet approval screen', async () => {
