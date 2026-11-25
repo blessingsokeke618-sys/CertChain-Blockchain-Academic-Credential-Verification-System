@@ -91,14 +91,19 @@ const NETWORK_PASSPHRASES = {
  * testnet while the app runs on mainnet would sign against the wrong ledger,
  * and the resulting "network mismatch" is the kind of error users blame on
  * their wallet rather than on us. Custom deployments map by passphrase so a
- * standalone/futurenet target still lands on the right value; anything
- * unrecognised falls back to testnet, which fails safe (a testnet signature is
- * worthless on mainnet, never the reverse).
+ * standalone/futurenet target still lands on the right value. An unrecognised
+ * passphrase is a configuration error; silently signing for another network
+ * would produce an unusable signature and a misleading approval prompt.
  */
 function kitNetwork(): string {
     const passphrase = activeNetwork.networkPassphrase;
     const known = Object.values(NETWORK_PASSPHRASES) as readonly string[];
-    return known.includes(passphrase) ? passphrase : NETWORK_PASSPHRASES.TESTNET;
+    if (!known.includes(passphrase)) {
+        throw new Error(
+            `Unsupported Stellar network passphrase "${passphrase}". Check the active network configuration before connecting a wallet.`,
+        );
+    }
+    return passphrase;
 }
 
 function readStoredWalletId(): string | null {
@@ -151,9 +156,14 @@ let kitPromise: Promise<Kit> | null = null;
  * Loaded separately from the others so its WalletConnect/Reown dependencies
  * stay out of the bundle entirely when unconfigured.
  */
-async function loadWalletConnectModule() {
+async function loadWalletConnectModule(passphrase: string) {
     const { projectId, appName, appUrl } = runtimeConfig.walletConnect;
     if (!projectId) return null;
+
+    if (passphrase !== NETWORK_PASSPHRASES.PUBLIC && passphrase !== NETWORK_PASSPHRASES.TESTNET) {
+        debugWarn(`WalletConnect does not support Stellar network passphrase "${passphrase}".`);
+        return null;
+    }
 
     try {
         const { WalletConnectModule, WalletConnectTargetChain } = await import(
@@ -165,7 +175,7 @@ async function loadWalletConnectModule() {
         // session, so the chain is derived from the app's own network — the
         // same rule as everywhere else: never a hardcoded network.
         const chain =
-            kitNetwork() === NETWORK_PASSPHRASES.PUBLIC
+            passphrase === NETWORK_PASSPHRASES.PUBLIC
                 ? WalletConnectTargetChain.PUBLIC
                 : WalletConnectTargetChain.TESTNET;
 
@@ -191,6 +201,7 @@ async function loadWalletConnectModule() {
 }
 
 async function loadKit(): Promise<Kit> {
+    const network = kitNetwork();
     const [
         { StellarWalletsKit },
         { FreighterModule },
@@ -221,7 +232,7 @@ async function loadKit(): Promise<Kit> {
 
     // Loaded after the others so an unconfigured/failed WalletConnect cannot
     // stop the extension wallets from being registered.
-    const walletConnect = await loadWalletConnectModule();
+    const walletConnect = await loadWalletConnectModule(network);
 
     const mobile = isMobileBrowser();
 
@@ -244,7 +255,7 @@ async function loadKit(): Promise<Kit> {
           ];
 
     StellarWalletsKit.init({
-        network: kitNetwork() as Parameters<typeof StellarWalletsKit.init>[0]['network'],
+        network: network as Parameters<typeof StellarWalletsKit.init>[0]['network'],
         selectedWalletId: readStoredWalletId() ?? undefined,
         modules: [
             // First in the list so it is the top option on a phone, where it is
