@@ -533,7 +533,7 @@ usable; everything else assumes `initialize` has already succeeded.
 | `NotInitialized` | 7 | Any owner-gated or state-reading call made before `initialize` has succeeded | `get_owner`, `get_pending_owner`, `is_authorized_issuer`, `total_credentials`, and (via `read_owner`) every owner-gated entrypoint |
 | `SameOwner` | 8 | `transfer_owner` called with the current owner's own address | `transfer_owner` |
 | `NoPendingOwner` | 9 | `accept_owner` called with no transfer in progress | `accept_owner` |
-| `ContractPaused` | 10 | State-changing call attempted while the contract is paused | `issue_credential`, `revoke_credential`, `admin_revoke_credential` |
+| `ContractPaused` | 10 | State-changing call attempted while the contract is paused | `issue_credential`, `batch_issue_credential`, `revoke_credential`, `admin_revoke_credential`, `authorize_issuer`, `revoke_issuer`, `set_issuer_profile`, `transfer_owner`, `accept_owner`, `propose_upgrade`, `cancel_upgrade`, `upgrade`, `migrate` |
 
 Beyond `ContractError`, calls can also fail at the host level with an authorization error (no
 matching `require_auth`) before ever reaching contract logic — this is not a `ContractError`

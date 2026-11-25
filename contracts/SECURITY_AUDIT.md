@@ -225,8 +225,12 @@ expose the classic EVM-style re-entrancy surface here. No action needed.
   now covered by tests that advance the simulated ledger sequence well past the default minimum
   TTL and assert data survives. See the "Storage Archival & TTL Strategy" section of
   [README.md](./README.md).
-- **Emergency pause**: `pause`/`unpause` gate all state-changing entrypoints while leaving
-  `verify_credential`/`get_credential` readable, so verification keeps working during an incident.
+- **Emergency pause**: `pause`/`unpause` gate all state-changing entrypoints (`issue_credential`,
+  `batch_issue_credential`, `revoke_credential`, `admin_revoke_credential`, `authorize_issuer`,
+  `revoke_issuer`, `set_issuer_profile`, `transfer_owner`, `accept_owner`, `propose_upgrade`,
+  `cancel_upgrade`, `upgrade`, `migrate`) while leaving `unpause`, `bump_credential`, and read
+  queries (`verify_credential`/`get_credential`, etc.) operational during an incident. Verified by
+  `test_pause_blocks_all_mutating_entrypoints`.
 - **Revocation is monotonic and idempotent-safe**: no `unrevoke` path exists; a second
   `revoke_credential` on an already-revoked credential fails with `AlreadyRevoked`. Verified
   by `mod proptest_invariants`, which fuzzes randomized issue/revoke sequences and checks this

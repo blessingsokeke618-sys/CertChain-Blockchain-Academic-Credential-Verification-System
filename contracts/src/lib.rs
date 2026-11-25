@@ -527,6 +527,10 @@ impl CertChainCredential {
         let owner = read_owner(&env);
         owner.require_auth();
 
+        if contract_is_paused(&env) {
+            return Err(ContractError::ContractPaused);
+        }
+
         if owner == new_owner {
             return Err(ContractError::SameOwner);
         }
@@ -544,6 +548,9 @@ impl CertChainCredential {
 
     pub fn accept_owner(env: Env) -> Result<(), ContractError> {
         let previous_owner = read_owner(&env);
+        if contract_is_paused(&env) {
+            return Err(ContractError::ContractPaused);
+        }
         let pending_owner: Address = env
             .storage()
             .instance()
@@ -567,6 +574,9 @@ impl CertChainCredential {
     pub fn authorize_issuer(env: Env, issuer: Address) {
         let owner = read_owner(&env);
         owner.require_auth();
+        if contract_is_paused(&env) {
+            panic_with_error!(&env, ContractError::ContractPaused);
+        }
         env.storage()
             .persistent()
             .set(&DataKey::Authorized(issuer.clone()), &true);
@@ -590,6 +600,9 @@ impl CertChainCredential {
     pub fn revoke_issuer(env: Env, issuer: Address) {
         let owner = read_owner(&env);
         owner.require_auth();
+        if contract_is_paused(&env) {
+            panic_with_error!(&env, ContractError::ContractPaused);
+        }
 
         let in_persistent = env
             .storage()
@@ -638,6 +651,10 @@ impl CertChainCredential {
         profile_uri: String,
     ) -> Result<(), ContractError> {
         issuer.require_auth();
+
+        if contract_is_paused(&env) {
+            return Err(ContractError::ContractPaused);
+        }
 
         if !check_and_extend_authorization(&env, &issuer) {
             return Err(ContractError::IssuerNotAuthorized);
@@ -1072,7 +1089,9 @@ impl CertChainCredential {
         Ok(())
     }
 
-    /// Halt all state-changing entrypoints.  Reads and verification continue
+    /// Halt all state-changing entrypoints (credential, issuer, profile,
+    /// ownership, upgrade, and migration mutations).  `unpause`, TTL
+    /// extensions (`bump_credential`), and read/verification queries continue
     /// to work while paused so existing credentials remain verifiable.
     pub fn pause(env: Env) -> Result<(), ContractError> {
         let owner = read_owner(&env);
@@ -1101,6 +1120,10 @@ impl CertChainCredential {
     pub fn propose_upgrade(env: Env, new_wasm_hash: BytesN<32>) -> Result<(), ContractError> {
         let owner = read_owner(&env);
         owner.require_auth();
+
+        if contract_is_paused(&env) {
+            return Err(ContractError::ContractPaused);
+        }
 
         let ready_ledger = env
             .ledger()
@@ -1131,6 +1154,10 @@ impl CertChainCredential {
         let owner = read_owner(&env);
         owner.require_auth();
 
+        if contract_is_paused(&env) {
+            return Err(ContractError::ContractPaused);
+        }
+
         if !env.storage().instance().has(&DataKey::PendingUpgrade) {
             return Err(ContractError::UpgradeNotProposed);
         }
@@ -1146,6 +1173,10 @@ impl CertChainCredential {
     pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) -> Result<(), ContractError> {
         let owner = read_owner(&env);
         owner.require_auth();
+
+        if contract_is_paused(&env) {
+            return Err(ContractError::ContractPaused);
+        }
 
         let pending: PendingUpgrade = env
             .storage()
@@ -1183,6 +1214,9 @@ impl CertChainCredential {
     pub fn migrate(env: Env) -> Result<(), ContractError> {
         let owner = read_owner(&env);
         owner.require_auth();
+        if contract_is_paused(&env) {
+            return Err(ContractError::ContractPaused);
+        }
         extend_instance_ttl(&env);
 
         let current_version = env
@@ -3090,6 +3124,109 @@ mod tests {
         env.as_contract(&contract, || {
             assert!(!CertChainCredential::is_paused(env.clone()));
         });
+    }
+
+    #[test]
+    fn test_pause_blocks_all_mutating_entrypoints() {
+        use soroban_sdk::testutils::Ledger as _;
+
+        let (env, contract, owner, issuer, student) = setup();
+        let client = CertChainCredentialClient::new(&env, &contract);
+
+        let token_id = client.issue_credential(
+            &student,
+            &issuer,
+            &dummy_hash(&env, 40),
+            &String::from_str(&env, "ipfs://pause-matrix"),
+        );
+
+        let next_owner = Address::generate(&env);
+        client.transfer_owner(&next_owner);
+
+        let wasm_hash = dummy_hash(&env, 41);
+        client.propose_upgrade(&wasm_hash);
+        env.ledger().with_mut(|l| {
+            l.sequence_number += UPGRADE_TIMELOCK_LEDGERS + 1;
+        });
+
+        client.pause();
+        assert!(client.is_paused());
+
+        // Credential mutations are blocked.
+        assert_eq!(
+            client.try_issue_credential(
+                &student,
+                &issuer,
+                &dummy_hash(&env, 42),
+                &String::from_str(&env, "ipfs://blocked"),
+            ),
+            Err(Ok(ContractError::ContractPaused))
+        );
+        let mut batch = Vec::new(&env);
+        batch.push_back(BatchCredentialInput {
+            student: student.clone(),
+            credential_hash: dummy_hash(&env, 43),
+            ipfs_uri: String::from_str(&env, "ipfs://blocked-batch"),
+        });
+        assert_eq!(
+            client.try_batch_issue_credential(&issuer, &batch),
+            Err(Ok(ContractError::ContractPaused))
+        );
+        assert_eq!(
+            client.try_revoke_credential(&token_id, &issuer),
+            Err(Ok(ContractError::ContractPaused))
+        );
+        assert_eq!(
+            client.try_admin_revoke_credential(&token_id),
+            Err(Ok(ContractError::ContractPaused))
+        );
+
+        // Issuer and profile mutations are blocked.
+        let other_issuer = Address::generate(&env);
+        let paused_err = soroban_sdk::Error::from_contract_error(ContractError::ContractPaused as u32);
+        assert_eq!(
+            client.try_authorize_issuer(&other_issuer),
+            Err(Ok(paused_err))
+        );
+        assert_eq!(client.try_revoke_issuer(&issuer), Err(Ok(paused_err)));
+        assert_eq!(
+            client.try_set_issuer_profile(
+                &issuer,
+                &String::from_str(&env, "Uni"),
+                &String::from_str(&env, "https://uni.example"),
+            ),
+            Err(Ok(ContractError::ContractPaused))
+        );
+
+        // Ownership, upgrade, and migration mutations are blocked.
+        assert_eq!(
+            client.try_transfer_owner(&Address::generate(&env)),
+            Err(Ok(ContractError::ContractPaused))
+        );
+        assert_eq!(
+            client.try_accept_owner(),
+            Err(Ok(ContractError::ContractPaused))
+        );
+        assert_eq!(
+            client.try_propose_upgrade(&dummy_hash(&env, 44)),
+            Err(Ok(ContractError::ContractPaused))
+        );
+        assert_eq!(
+            client.try_upgrade(&wasm_hash),
+            Err(Ok(ContractError::ContractPaused))
+        );
+        assert_eq!(
+            client.try_cancel_upgrade(),
+            Err(Ok(ContractError::ContractPaused))
+        );
+        assert_eq!(client.try_migrate(), Err(Ok(ContractError::ContractPaused)));
+
+        // TTL extension, reads, and unpause remain operational while paused.
+        assert!(client.try_bump_credential(&token_id).is_ok());
+        assert_eq!(client.get_owner(), owner);
+        assert!(client.verify_credential(&dummy_hash(&env, 40)).is_some());
+        client.unpause();
+        assert!(!client.is_paused());
     }
 
     // ---------------------------------------------------------------------------
