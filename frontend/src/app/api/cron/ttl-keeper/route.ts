@@ -65,6 +65,9 @@ interface KeeperRunSummary {
     lowBalance: boolean;
     durationMs: number;
     failedTokenIds: string[];
+    // Transaction hashes for every successful bump, so a scheduled run leaves
+    // an auditable on-chain trail (acceptance: "logs the transaction hash").
+    bumpedTransactions: Array<{ tokenId: string; txHash: string }>;
     // Coverage (Issue #137): keyset pagination across invocations.
     cursorStart: string | null;
     cursorEnd: string | null;
@@ -103,11 +106,13 @@ async function getRemainingTtlLedgers(tokenId: string): Promise<number | null> {
 
         const server = new StellarRpc.Server(rpc.serverURL.toString());
         const contract = new Contract(contractId);
-        const key = xdr.ScVal.scvLedgerKeyContractData({
-            contract: contract.address().toScAddress(),
-            key: nativeToScVal(BigInt(tokenId), { type: 'u64' }),
-            durability: xdr.ContractDataDurability.persistent(),
-        });
+        const key = xdr.LedgerKey.contractData(
+            new xdr.LedgerKeyContractData({
+                contract: contract.address().toScAddress(),
+                key: nativeToScVal(BigInt(tokenId), { type: 'u64' }),
+                durability: xdr.ContractDataDurability.persistent,
+            }),
+        );
 
         const response = await server.getLedgerEntries(key);
         const entry = response.entries?.[0];
@@ -123,7 +128,7 @@ async function getRemainingTtlLedgers(tokenId: string): Promise<number | null> {
     }
 }
 
-async function bumpCredentialOnChain(tokenId: string): Promise<{ success: boolean; ttlLedgers: number | null }> {
+async function bumpCredentialOnChain(tokenId: string): Promise<{ success: boolean; txHash: string | null }> {
     try {
         const rpc = getRpcClient();
         const contractId = getConfiguredContractId('CREDENTIAL_NFT');
@@ -131,7 +136,7 @@ async function bumpCredentialOnChain(tokenId: string): Promise<{ success: boolea
 
         if (!keeperSecret) {
             // No keeper account configured — cannot submit on-chain bump.
-            return { success: false, ttlLedgers: null };
+            return { success: false, txHash: null };
         }
 
         // bump_credential is permissionless — any funded account can call it.
@@ -156,7 +161,7 @@ async function bumpCredentialOnChain(tokenId: string): Promise<{ success: boolea
 
         const sim = await server.simulateTransaction(tx);
         if (StellarRpc.Api.isSimulationError(sim)) {
-            return { success: false, ttlLedgers: null };
+            return { success: false, txHash: null };
         }
 
         const prepared = StellarRpc.assembleTransaction(tx, sim).build();
@@ -164,7 +169,7 @@ async function bumpCredentialOnChain(tokenId: string): Promise<{ success: boolea
 
         const result = await server.sendTransaction(prepared);
         if (result.status === 'ERROR') {
-            return { success: false, ttlLedgers: null };
+            return { success: false, txHash: null };
         }
 
         // Poll for completion
@@ -177,9 +182,9 @@ async function bumpCredentialOnChain(tokenId: string): Promise<{ success: boolea
         }
 
         const succeeded = getResult.status === StellarRpc.Api.GetTransactionStatus.SUCCESS;
-        return { success: succeeded, ttlLedgers: null };
+        return { success: succeeded, txHash: succeeded ? result.hash : null };
     } catch {
-        return { success: false, ttlLedgers: null };
+        return { success: false, txHash: null };
     }
 }
 
@@ -281,6 +286,7 @@ export async function GET(request: NextRequest) {
     let bumpSkipped = 0;
     let minRemainingTtlLedgers: number | null = null;
     const failedTokenIds: string[] = [];
+    const bumpedTransactions: Array<{ tokenId: string; txHash: string }> = [];
 
     for (const tokenId of tokenIds) {
         // Read the current remaining TTL so the summary can report how close
@@ -299,9 +305,12 @@ export async function GET(request: NextRequest) {
         }
 
         bumpAttempted++;
-        const { success } = await bumpCredentialOnChain(tokenId);
+        const { success, txHash } = await bumpCredentialOnChain(tokenId);
         if (success) {
             bumpSucceeded++;
+            if (txHash) {
+                bumpedTransactions.push({ tokenId, txHash });
+            }
         } else {
             bumpFailed++;
             failedTokenIds.push(tokenId);
@@ -346,6 +355,7 @@ export async function GET(request: NextRequest) {
         lowBalance,
         durationMs: Date.now() - startMs,
         failedTokenIds,
+        bumpedTransactions,
         cursorStart,
         cursorEnd,
         processedThisRun: tokenIds.length,
@@ -359,6 +369,7 @@ export async function GET(request: NextRequest) {
         bumpSucceeded,
         bumpFailed,
         bumpSkipped,
+        bumpedTransactions,
         revokedTotal: summary.revokedTotal,
         minRemainingTtlLedgers,
         lowTtl,
