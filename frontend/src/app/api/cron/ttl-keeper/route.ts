@@ -51,10 +51,12 @@ const CURSOR_ROW_ID = 'default';
 
 interface KeeperRunSummary {
     runId: string;
+    status: 'succeeded' | 'partial' | 'failed';
     totalCredentials: number;
     bumpAttempted: number;
     bumpSucceeded: number;
     bumpFailed: number;
+    ttlReadFailed: number;
     bumpSkipped: number;  // TTL already healthy
     // Revoked credentials stay in the bump set (Issue #138): their on-chain
     // entries must outlive the TTL window so verification reports "revoked"
@@ -76,6 +78,56 @@ interface KeeperRunSummary {
     wrapped: boolean;
 }
 
+type TtlReadResult =
+    | { ok: true; remainingTtlLedgers: number | null }
+    | { ok: false; error: unknown };
+
+async function recordKeeperRun(
+    supabase: ReturnType<typeof getServiceRoleClient>,
+    requestId: string,
+    runId: string,
+    status: KeeperRunSummary['status'],
+    summary: KeeperRunSummary | { error: string },
+): Promise<string | null> {
+    if (status === 'failed') {
+        recordMetric('ttl_keeper.failed', 1, { requestId, runId });
+    } else if (status === 'partial') {
+        recordMetric('ttl_keeper.partial', 1, { requestId, runId });
+    }
+
+    const { error } = await supabase.from('cron_run_log').upsert(
+        {
+            job_name: 'ttl-keeper',
+            run_id: runId,
+            status,
+            summary,
+            completed_at: new Date().toISOString(),
+        },
+        { onConflict: 'job_name,run_id' },
+    );
+
+    if (!error) return null;
+
+    structuredLog('ERROR', 'Failed to record TTL keeper run', requestId, {
+        runId,
+        error: error.message,
+    });
+    captureException(error, { requestId, runId, context: 'record TTL keeper run' });
+    return error.message;
+}
+
+function runLogFailureResponse(runId: string, error: string) {
+    return NextResponse.json(
+        {
+            success: false,
+            error: 'Failed to record TTL keeper run',
+            details: error,
+            runId,
+        },
+        { status: 500 },
+    );
+}
+
 async function getKeeperBalance(): Promise<number | null> {
     try {
         const horizonUrl = process.env.NEXT_PUBLIC_HORIZON_URL ?? 'https://horizon-testnet.stellar.org';
@@ -95,10 +147,10 @@ async function getKeeperBalance(): Promise<number | null> {
 
 /**
  * Read the live-until ledger of a credential's persistent entry via
- * getLedgerEntries, and return the remaining TTL in ledgers. Returns null
- * when the entry cannot be read (e.g. missing or RPC error).
+ * getLedgerEntries and return the remaining TTL in ledgers. A missing entry
+ * is a bump candidate; RPC failures are reported separately.
  */
-async function getRemainingTtlLedgers(tokenId: string): Promise<number | null> {
+async function getRemainingTtlLedgers(tokenId: string): Promise<TtlReadResult> {
     try {
         const rpc = getRpcClient();
         const contractId = getConfiguredContractId('CREDENTIAL_NFT');
@@ -116,15 +168,17 @@ async function getRemainingTtlLedgers(tokenId: string): Promise<number | null> {
 
         const response = await server.getLedgerEntries(key);
         const entry = response.entries?.[0];
-        if (!entry) return null;
+        if (!entry) return { ok: true, remainingTtlLedgers: null };
 
         const latestLedger = response.latestLedger;
         const liveUntil = entry.liveUntilLedgerSeq;
-        if (latestLedger == null || liveUntil == null) return null;
+        if (latestLedger == null || liveUntil == null) {
+            return { ok: true, remainingTtlLedgers: null };
+        }
 
-        return Math.max(0, liveUntil - latestLedger);
-    } catch {
-        return null;
+        return { ok: true, remainingTtlLedgers: Math.max(0, liveUntil - latestLedger) };
+    } catch (error) {
+        return { ok: false, error };
     }
 }
 
@@ -241,15 +295,21 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
     }
 
+    const supabase = getServiceRoleClient();
+
     if (!process.env.TTL_KEEPER_ACCOUNT_SECRET) {
+        const error = 'TTL_KEEPER_ACCOUNT_SECRET not configured';
         structuredLog('WARN', 'TTL keeper skipped: no keeper account configured', requestId);
+        const logError = await recordKeeperRun(supabase, requestId, runId, 'failed', { error });
+        if (logError) return runLogFailureResponse(runId, logError);
         return NextResponse.json({
             success: false,
-            error: 'TTL_KEEPER_ACCOUNT_SECRET not configured',
+            status: 'failed',
+            error,
+            runId,
         }, { status: 503 });
     }
 
-    const supabase = getServiceRoleClient();
     const cursorStart = await readCursor(supabase);
 
     // Fetch a page of credential token IDs, continuing from the cursor.
@@ -268,7 +328,10 @@ export async function GET(request: NextRequest) {
     const { data: rows, error: fetchError } = await query;
     if (fetchError) {
         captureException(fetchError, { runId, phase: 'fetch-credentials' });
-        return NextResponse.json({ success: false, error: 'Failed to read credentials' }, { status: 500 });
+        const error = `Failed to read credentials: ${fetchError.message}`;
+        const logError = await recordKeeperRun(supabase, requestId, runId, 'failed', { error });
+        if (logError) return runLogFailureResponse(runId, logError);
+        return NextResponse.json({ success: false, status: 'failed', error, runId }, { status: 500 });
     }
 
     const revokedTokenIds = new Set<string>();
@@ -283,6 +346,7 @@ export async function GET(request: NextRequest) {
     let bumpAttempted = 0;
     let bumpSucceeded = 0;
     let bumpFailed = 0;
+    let ttlReadFailed = 0;
     let bumpSkipped = 0;
     let minRemainingTtlLedgers: number | null = null;
     const failedTokenIds: string[] = [];
@@ -291,7 +355,15 @@ export async function GET(request: NextRequest) {
     for (const tokenId of tokenIds) {
         // Read the current remaining TTL so the summary can report how close
         // credentials are to archival (Issue #139).
-        const remaining = await getRemainingTtlLedgers(tokenId);
+        const ttlRead = await getRemainingTtlLedgers(tokenId);
+        if (!ttlRead.ok) {
+            captureException(ttlRead.error, { runId, phase: 'read-ttl', tokenId });
+            ttlReadFailed++;
+            failedTokenIds.push(tokenId);
+            continue;
+        }
+
+        const remaining = ttlRead.remainingTtlLedgers;
         if (remaining != null) {
             minRemainingTtlLedgers = minRemainingTtlLedgers == null
                 ? remaining
@@ -342,12 +414,21 @@ export async function GET(request: NextRequest) {
         });
     }
 
+    const failureCount = bumpFailed + ttlReadFailed;
+    const status: KeeperRunSummary['status'] = failureCount === 0
+        ? 'succeeded'
+        : bumpSucceeded > 0 || bumpSkipped > 0
+            ? 'partial'
+            : 'failed';
+
     const summary: KeeperRunSummary = {
         runId,
+        status,
         totalCredentials: tokenIds.length,
         bumpAttempted,
         bumpSucceeded,
         bumpFailed,
+        ttlReadFailed,
         bumpSkipped,
         revokedTotal: revokedTokenIds.size,
         minRemainingTtlLedgers,
@@ -363,19 +444,37 @@ export async function GET(request: NextRequest) {
         wrapped,
     };
 
-    structuredLog('INFO', 'TTL keeper run complete', requestId, {
-        runId,
-        bumpAttempted,
-        bumpSucceeded,
-        bumpFailed,
-        bumpSkipped,
-        bumpedTransactions,
-        revokedTotal: summary.revokedTotal,
-        minRemainingTtlLedgers,
-        lowTtl,
-        lowBalance,
-        durationMs: summary.durationMs,
-    });
+    structuredLog(
+        status === 'succeeded' ? 'INFO' : status === 'partial' ? 'WARN' : 'ERROR',
+        'TTL keeper run complete',
+        requestId,
+        {
+            runId,
+            bumpAttempted,
+            bumpSucceeded,
+            bumpFailed,
+            ttlReadFailed,
+            bumpSkipped,
+            status,
+            bumpedTransactions,
+            revokedTotal: summary.revokedTotal,
+            minRemainingTtlLedgers,
+            lowTtl,
+            lowBalance,
+            durationMs: summary.durationMs,
+        },
+    );
 
-    return NextResponse.json({ success: true, summary, alert: lowTtl || lowBalance });
+    const logError = await recordKeeperRun(supabase, requestId, runId, status, summary);
+    if (logError) return runLogFailureResponse(runId, logError);
+
+    return NextResponse.json(
+        {
+            success: status !== 'failed',
+            status,
+            summary,
+            alert: lowTtl || lowBalance || failureCount > 0,
+        },
+        { status: status === 'failed' ? 500 : 200 },
+    );
 }

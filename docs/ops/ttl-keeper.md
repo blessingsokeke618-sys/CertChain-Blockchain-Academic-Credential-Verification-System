@@ -24,6 +24,8 @@ scheduled daily at 02:00 UTC via `frontend/vercel.json`:
 5. Records a per-run summary including `bumpedTransactions`
    (`{ tokenId, txHash }` pairs) so every bump leaves an auditable on-chain
    trail, plus `minRemainingTtlLedgers`, keeper balance, and coverage counts.
+   The run is stored in `cron_run_log` with `succeeded`, `partial`, or
+   `failed` status for the admin dashboard.
 
 Revoked credentials are deliberately included: their entries must outlive the
 TTL window so verification reports "revoked" rather than "not found".
@@ -87,6 +89,9 @@ The JSON response contains `summary`:
 
 The admin dashboard surfaces the latest run via `GET /api/admin/stats`
 (`ttlKeeper` field, backed by `cron_run_log`).
+Missing keeper configuration and RPC read failures are recorded as failed run
+outcomes; a failure to write or read the run log is returned as an explicit
+server error rather than being treated as an empty result.
 
 ---
 

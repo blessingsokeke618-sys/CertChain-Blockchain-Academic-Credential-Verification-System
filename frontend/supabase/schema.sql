@@ -14,7 +14,6 @@
 --   • DROP POLICY / TRIGGER IF EXISTS before each CREATE
 -- Existing objects are skipped; missing ones are created. No data is dropped.
 --
--- Generated: 2026-09-15T19:52:25Z
 -- ============================================================================
 
 
@@ -96,8 +95,7 @@ CREATE TABLE IF NOT EXISTS public.credentials (
     hash_algorithm          TEXT NOT NULL DEFAULT 'sha256:canonical-json:v1',
     issued_at               TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     revoked                 BOOLEAN DEFAULT false,
-    revoked_at              TIMESTAMP WITH TIME ZONE,
-    revocation_source       TEXT CHECK (revocation_source IN ('issuer', 'platform'))
+    revoked_at              TIMESTAMP WITH TIME ZONE
 );
 
 -- Verification logs
@@ -2359,12 +2357,8 @@ CREATE TABLE IF NOT EXISTS public.wallet_claim_nonces (
     expires_at     TIMESTAMP WITH TIME ZONE NOT NULL,
     consumed_at    TIMESTAMP WITH TIME ZONE,
     ip_hash        TEXT,
-    purpose        TEXT NOT NULL DEFAULT 'claim'::text,
     created_at     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
-
-COMMENT ON COLUMN public.wallet_claim_nonces.purpose IS
-    'Flow that issued the challenge: claim or login. Verifiers must filter on it.';
 
 COMMENT ON TABLE public.wallet_claim_nonces IS
     'Single-use, short-lived challenges for the wallet-ownership claim flow (Issue #243). Bound to one wallet address; consumed on first successful verification.';
@@ -2493,4 +2487,85 @@ CREATE TRIGGER block_credential_delete
     BEFORE DELETE ON public.credentials
     FOR EACH ROW
     EXECUTE FUNCTION public.prevent_credential_deletion();
+
+
+-- ============================================================================
+-- migration: 20260930000000_credential_revocation_source.sql
+-- ============================================================================
+
+BEGIN;
+
+ALTER TABLE public.credentials
+    ADD COLUMN IF NOT EXISTS revocation_source TEXT;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conrelid = 'public.credentials'::regclass
+          AND conname  = 'credentials_revocation_source_check'
+    ) THEN
+        ALTER TABLE public.credentials
+            ADD CONSTRAINT credentials_revocation_source_check
+            CHECK (revocation_source IN ('issuer', 'platform'));
+    END IF;
+END
+$$;
+
+UPDATE public.credentials
+SET    revocation_source = 'issuer'
+WHERE  revoked IS TRUE
+  AND  revocation_source IS NULL;
+
+COMMIT;
+
+
+-- ============================================================================
+-- migration: 20261124000000_wallet_login_nonce_purpose.sql
+-- ============================================================================
+
+-- Issue #94: separate SEP-0010 login challenges from wallet-claim challenges.
+-- Both are single-use nonces bound to one address, but they must never be
+-- interchangeable: a claim signature must not authenticate a login and vice
+-- versa.
+
+ALTER TABLE public.wallet_claim_nonces
+    ADD COLUMN IF NOT EXISTS purpose TEXT NOT NULL DEFAULT 'claim';
+
+COMMENT ON COLUMN public.wallet_claim_nonces.purpose IS
+    'Flow that issued the challenge: claim or login. Verifiers must filter on it.';
+
+CREATE INDEX IF NOT EXISTS idx_wallet_claim_nonces_purpose
+    ON public.wallet_claim_nonces (purpose, wallet_address, expires_at DESC);
+
+
+-- ============================================================================
+-- migration: 20261126000000_ttl_keeper_run_log.sql
+-- ============================================================================
+
+-- Issue #135: persist TTL keeper outcomes for the admin statistics endpoint.
+
+CREATE TABLE IF NOT EXISTS public.cron_run_log (
+    job_name TEXT NOT NULL,
+    run_id UUID NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('succeeded', 'partial', 'failed')),
+    summary JSONB NOT NULL DEFAULT '{}'::jsonb,
+    completed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (job_name, run_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cron_run_log_job_completed
+    ON public.cron_run_log (job_name, completed_at DESC);
+
+ALTER TABLE public.cron_run_log ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Admin can view cron run log" ON public.cron_run_log;
+CREATE POLICY "Admin can view cron run log"
+    ON public.cron_run_log FOR SELECT
+    USING (public.is_admin());
+
+COMMENT ON TABLE public.cron_run_log IS
+    'Outcome log for scheduled jobs. Writes use the service-role client; '
+    'admins can read run summaries.';
 
