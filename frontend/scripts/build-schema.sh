@@ -1,11 +1,20 @@
 #!/usr/bin/env bash
-# Regenerate supabase/schema.sql — a single, idempotent, paste-and-run file
-# built from every migration in order. Run after adding a migration:
+# Regenerate or check supabase/schema.sql — a single, idempotent, paste-and-run
+# file built from every migration in order. Run after adding a migration:
 #     npm run db:schema
+#     npm run db:schema -- --check
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-OUT="supabase/schema.sql"
+TARGET="supabase/schema.sql"
+CHECK_MODE="${1:-}"
+
+if [[ "$CHECK_MODE" == "--check" ]]; then
+  OUT="$(mktemp)"
+  trap 'rm -f "$OUT"' EXIT
+else
+  OUT="$TARGET"
+fi
 
 {
   echo "-- ============================================================================"
@@ -24,7 +33,6 @@ OUT="supabase/schema.sql"
   echo "--   • DROP POLICY / TRIGGER IF EXISTS before each CREATE"
   echo "-- Existing objects are skipped; missing ones are created. No data is dropped."
   echo "--"
-  echo "-- Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "-- ============================================================================"
   echo
 
@@ -39,4 +47,13 @@ OUT="supabase/schema.sql"
   done
 } > "$OUT"
 
-echo "Wrote $OUT ($(wc -l < "$OUT") lines from $(ls supabase/migrations/*.sql | wc -l) migrations)"
+if [[ "$CHECK_MODE" == "--check" ]]; then
+  if ! cmp -s "$OUT" "$TARGET"; then
+    diff -u "$TARGET" "$OUT" || true
+    echo "Generated schema is out of date; run npm run db:schema." >&2
+    exit 1
+  fi
+  echo "Generated schema is current."
+else
+  echo "Wrote $OUT ($(wc -l < "$OUT") lines from $(ls supabase/migrations/*.sql | wc -l) migrations)"
+fi

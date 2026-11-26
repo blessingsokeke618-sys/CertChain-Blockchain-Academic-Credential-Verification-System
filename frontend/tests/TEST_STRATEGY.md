@@ -239,13 +239,19 @@ README design philosophy section.
 Pressing `Escape` leaves the kit's modal on screen. Confirmed to be the kit's own
 behaviour, not ours - it reproduces with Acredia's a11y attributes stripped off
 the dialog before the key press, and the kit's `components/app.js` registers no
-`keydown` handler. The close button works.
+`keydown` handler. The close button works. This was reproduced with
+`@creit.tech/stellar-wallets-kit` 2.8.0.
 
 Left as-is deliberately: a key handler of ours would have to guess at the kit's
 internal close path, and axe does not treat it as a WCAG failure. Worth an
 upstream issue against
-[Stellar-Wallets-Kit](https://github.com/Creit-Tech/Stellar-Wallets-Kit). If it
-becomes ours to fix, the close button is reachable at
+[Stellar-Wallets-Kit](https://github.com/Creit-Tech/Stellar-Wallets-Kit). The
+current GitHub integration cannot create issues in that repository, so no
+upstream issue number or fixing version is available yet; check the
+[upstream issue tracker](https://github.com/Creit-Tech/Stellar-Wallets-Kit/issues)
+for a report before filing to avoid duplicates. Until a fix is released, use
+the labelled close button. If it becomes ours to fix, the close button is
+reachable at
 `button[aria-label="Close wallet selection"]` - the label Acredia adds in
 `src/lib/wallet/modalA11y.ts`.
 

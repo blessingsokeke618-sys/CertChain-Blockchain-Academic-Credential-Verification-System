@@ -92,16 +92,29 @@ request until resolved.
 - Verify contract IDs on Stellar Expert before using them in production.
 - Use Stellar Public Network only after contract review, RLS review, and deployment verification.
 
-## Secret Scan Gate (Pre-Commit + CI)
+## Local Quality Hooks (Pre-Commit + CI)
 
-This repository uses `gitleaks` in CI and ships a local pre-commit hook config.
+The pre-commit hooks run gitleaks, Rust formatting, frontend ESLint/typechecking,
+Prettier checks, and a generated Supabase schema check. Install them once:
 
-Set up the local hook once:
-
-```powershell
-pip install pre-commit
+```bash
+python -m pip install pre-commit
 pre-commit install
 pre-commit run --all-files
+```
+
+The checks are scoped to relevant files. ESLint and Prettier skip the generated
+contract binding (`frontend/src/contracts/certchain.ts`) and `*.generated.*`
+files; Prettier also skips `frontend/supabase/schema.sql`. The schema hook checks
+that this generated schema matches the migrations instead. Typechecking runs
+for frontend JavaScript/TypeScript changes and includes imported generated
+bindings.
+
+To skip only these local quality checks for an exceptional commit, keep the
+secret scan enabled and run:
+
+```bash
+SKIP=rustfmt,frontend-eslint,frontend-typecheck,frontend-prettier,supabase-schema git commit
 ```
 
 If a secret is detected, rotate the affected key immediately and follow `SECRETS_ROTATION.md`.

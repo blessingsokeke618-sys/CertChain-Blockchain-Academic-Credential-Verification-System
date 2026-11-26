@@ -88,5 +88,23 @@ describe('database migration policy model', () => {
         expect(handoverMigration).toContain('CREATE POLICY "Admin can view admin audit logs"');
         expect(handoverMigration).toContain('CREATE POLICY "Institution members can view colleagues"');
     });
+
+    it('defines the TTL keeper run-log contract consumed by cron and admin stats', () => {
+        const migration = readSql(
+            'supabase',
+            'migrations',
+            '20261126000000_ttl_keeper_run_log.sql',
+        );
+
+        expect(migration).toContain('CREATE TABLE IF NOT EXISTS public.cron_run_log');
+        expect(migration).toContain('job_name TEXT NOT NULL');
+        expect(migration).toContain('run_id UUID NOT NULL');
+        expect(migration).toContain("status IN ('succeeded', 'partial', 'failed')");
+        expect(migration).toContain('summary JSONB NOT NULL');
+        expect(migration).toContain('completed_at TIMESTAMPTZ NOT NULL');
+        expect(migration).toContain('PRIMARY KEY (job_name, run_id)');
+        expect(migration).toContain('ENABLE ROW LEVEL SECURITY');
+        expect(migration).toContain('USING (public.is_admin())');
+    });
 });
 

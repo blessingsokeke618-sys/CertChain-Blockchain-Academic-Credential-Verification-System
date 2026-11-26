@@ -123,7 +123,11 @@ function makeRequest(headers: Record<string, string> = {}) {
 function installSupabase(rows: Array<{ token_id: number; revoked: boolean }>) {
   const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
   const upsert = vi.fn().mockResolvedValue({ error: null });
+  const runLogUpsert = vi.fn().mockResolvedValue({ error: null });
   const from = vi.fn((table: string) => {
+    if (table === 'cron_run_log') {
+      return { upsert: runLogUpsert };
+    }
     if (table === 'ttl_keeper_cursor') {
       return {
         select: () => ({ eq: () => ({ maybeSingle }) }),
@@ -142,7 +146,7 @@ function installSupabase(rows: Array<{ token_id: number; revoked: boolean }>) {
     };
   });
   mocks.getServiceRoleClient.mockReturnValue({ from });
-  return { from, upsert };
+  return { from, upsert, runLogUpsert };
 }
 
 describe('TTL keeper cron route', () => {
@@ -165,7 +169,7 @@ describe('TTL keeper cron route', () => {
   });
 
   it('keeps revoked credentials in the bump set and reports them in the summary', async () => {
-    installSupabase([
+    const { runLogUpsert } = installSupabase([
       { token_id: 1001, revoked: true },
       { token_id: 1002, revoked: false },
     ]);
@@ -176,6 +180,7 @@ describe('TTL keeper cron route', () => {
 
     const body = await res.json();
     expect(body.summary).toMatchObject({
+      status: 'succeeded',
       totalCredentials: 2,
       revokedTotal: 1,
       bumpAttempted: 2,
@@ -210,10 +215,14 @@ describe('TTL keeper cron route', () => {
         ],
       }),
     );
+    expect(runLogUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ job_name: 'ttl-keeper', status: 'succeeded' }),
+      { onConflict: 'job_name,run_id' },
+    );
   });
 
   it('is a no-op for credentials whose TTL is already above the threshold', async () => {
-    installSupabase([{ token_id: 1001, revoked: false }]);
+    const { runLogUpsert } = installSupabase([{ token_id: 1001, revoked: false }]);
     // Remaining TTL (~46 days of ledgers) is far above the ~6-month
     // PERSISTENT_THRESHOLD, so a second run after a successful bump skips
     // the on-chain call entirely.
@@ -228,6 +237,7 @@ describe('TTL keeper cron route', () => {
 
     const body = await res.json();
     expect(body.summary).toMatchObject({
+      status: 'succeeded',
       totalCredentials: 1,
       bumpAttempted: 0,
       bumpSucceeded: 0,
@@ -235,6 +245,65 @@ describe('TTL keeper cron route', () => {
       bumpedTransactions: [],
     });
     expect(mocks.contractCall).not.toHaveBeenCalled();
+    expect(runLogUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ job_name: 'ttl-keeper', status: 'succeeded' }),
+      { onConflict: 'job_name,run_id' },
+    );
+  });
+
+  it('records a missing keeper secret as a failed run', async () => {
+    const { runLogUpsert } = installSupabase([]);
+    delete process.env.TTL_KEEPER_ACCOUNT_SECRET;
+
+    const { GET } = await import('@/app/api/cron/ttl-keeper/route');
+    const res = await GET(makeRequest({ authorization: 'Bearer test-secret' }));
+    const body = await res.json();
+
+    expect(res.status).toBe(503);
+    expect(body).toMatchObject({ success: false, status: 'failed' });
+    expect(runLogUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        job_name: 'ttl-keeper',
+        status: 'failed',
+        summary: { error: 'TTL_KEEPER_ACCOUNT_SECRET not configured' },
+      }),
+      { onConflict: 'job_name,run_id' },
+    );
+  });
+
+  it('surfaces a missing run-log table instead of returning a successful response', async () => {
+    const { runLogUpsert } = installSupabase([]);
+    runLogUpsert.mockResolvedValue({
+      error: { message: 'relation "cron_run_log" does not exist' },
+    });
+
+    const { GET } = await import('@/app/api/cron/ttl-keeper/route');
+    const res = await GET(makeRequest({ authorization: 'Bearer test-secret' }));
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body).toMatchObject({
+      success: false,
+      error: 'Failed to record TTL keeper run',
+      details: 'relation "cron_run_log" does not exist',
+    });
+  });
+
+  it('marks a run failed when TTL reads fail for every credential', async () => {
+    installSupabase([{ token_id: 1001, revoked: false }]);
+    mocks.getLedgerEntries.mockRejectedValue(new Error('RPC unavailable'));
+
+    const { GET } = await import('@/app/api/cron/ttl-keeper/route');
+    const res = await GET(makeRequest({ authorization: 'Bearer test-secret' }));
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body).toMatchObject({
+      success: false,
+      status: 'failed',
+      summary: { ttlReadFailed: 1, bumpFailed: 0 },
+      alert: true,
+    });
   });
 
   it('returns the auth failure from the cron guard', async () => {

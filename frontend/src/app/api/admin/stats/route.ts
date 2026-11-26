@@ -149,13 +149,20 @@ export async function GET(request: NextRequest) {
             .maybeSingle();
 
         // Fetch TTL keeper last run state (Issue #281)
-        const { data: ttlKeeperState } = await supabase
+        const { data: ttlKeeperState, error: ttlKeeperError } = await supabase
             .from('cron_run_log')
             .select('run_id, status, summary, completed_at')
             .eq('job_name', 'ttl-keeper')
             .order('completed_at', { ascending: false })
             .limit(1)
             .maybeSingle();
+
+        if (ttlKeeperError) {
+            structuredLog('ERROR', 'Error fetching TTL keeper run log', requestId, {
+                error: ttlKeeperError,
+            });
+            throw new Error(`Failed to load TTL keeper run log: ${ttlKeeperError.message}`);
+        }
 
         return NextResponse.json({
             success: true,

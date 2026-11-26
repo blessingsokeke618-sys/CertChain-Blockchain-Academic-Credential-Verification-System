@@ -5,3 +5,41 @@ repos:
       - id: gitleaks
         name: gitleaks staged secret scan
         args: ["protect", "--staged", "--redact", "--verbose", "--config=.gitleaks.toml"]
+
+  - repo: local
+    hooks:
+      - id: rustfmt
+        name: rustfmt contracts
+        entry: cargo fmt --manifest-path contracts/Cargo.toml -- --check
+        language: system
+        pass_filenames: false
+        files: ^contracts/.*\.rs$
+
+      - id: frontend-eslint
+        name: ESLint frontend files
+        entry: npm --prefix frontend exec -- eslint
+        language: system
+        types_or: [javascript, ts, tsx]
+        files: ^frontend/
+        exclude: ^frontend/(src/contracts/certchain\.ts|src/.+\.generated\.(js|jsx|ts|tsx))$
+
+      - id: frontend-typecheck
+        name: Type-check frontend
+        entry: npm --prefix frontend run typecheck
+        language: system
+        pass_filenames: false
+        files: ^frontend/.*\.(js|jsx|ts|tsx|mjs|json)$
+
+      - id: frontend-prettier
+        name: Prettier frontend and docs
+        entry: npm --prefix frontend exec -- prettier --check
+        language: system
+        types_or: [javascript, ts, tsx, json, yaml, markdown, html, css]
+        exclude: ^frontend/(src/contracts/certchain\.ts|src/.+\.generated\.(js|jsx|ts|tsx)|supabase/schema\.sql)$
+
+      - id: supabase-schema
+        name: Check generated Supabase schema
+        entry: npm --prefix frontend run db:schema -- --check
+        language: system
+        pass_filenames: false
+        files: ^frontend/supabase/(migrations/.*\.sql|schema\.sql)$

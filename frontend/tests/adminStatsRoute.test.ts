@@ -43,7 +43,7 @@ function statsRequest(ip?: string): NextRequest {
  * Returns a mock Supabase client whose `.from().select()` chain returns
  * predictable counts and data sets for the admin stats queries.
  */
-function happySupabaseClient() {
+function happySupabaseClient(cronRunLogError: { message: string } | null = null) {
     return {
         from: vi.fn((table: string) => {
             if (table === 'institutions') {
@@ -124,7 +124,17 @@ function happySupabaseClient() {
                             order: vi.fn(() => ({
                                 limit: vi.fn(() => ({
                                     maybeSingle: vi.fn(() =>
-                                        Promise.resolve({ data: null, error: null }),
+                                        Promise.resolve({
+                                            data: cronRunLogError
+                                                ? null
+                                                : {
+                                                      run_id: 'run-1',
+                                                      status: 'failed',
+                                                      summary: { error: 'keeper secret missing' },
+                                                      completed_at: '2026-11-26T00:00:00Z',
+                                                  },
+                                            error: cronRunLogError,
+                                        }),
                                     ),
                                 })),
                             })),
@@ -166,6 +176,24 @@ describe('GET /api/admin/stats', () => {
         expect(typeof payload.stats.totalCredentials).toBe('number');
         expect(typeof payload.stats.totalStudents).toBe('number');
         expect(payload.stats.verificationActivity).toBeDefined();
+        expect(payload.stats.ttlKeeper.lastRunStatus).toBe('failed');
+        expect(payload.stats.ttlKeeper.lastRunId).toBe('run-1');
+    });
+
+    it('surfaces a missing TTL keeper run-log table', async () => {
+        mockGetServiceRoleClient.mockReturnValue(
+            happySupabaseClient({ message: 'relation "cron_run_log" does not exist' }),
+        );
+
+        const response = await GET(statsRequest());
+        const payload = await response.json();
+
+        expect(response.status).toBe(500);
+        expect(payload).toMatchObject({
+            success: false,
+            error: 'Failed to fetch statistics',
+            details: 'Failed to load TTL keeper run log: relation "cron_run_log" does not exist',
+        });
     });
 
     /* ─── Authz-failure branch ────────────────────────────────────────────── */
